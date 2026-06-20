@@ -11,7 +11,14 @@
     "preview": "vite preview",
     "check": "vue-tsc -b",
     "lint": "eslint . --ext .ts,.vue",
-    "lint:fix": "eslint . --ext .ts,.vue --fix"
+    "lint:fix": "eslint . --ext .ts,.vue --fix",
+    "migration:status": "tsx api/cli.ts status",
+    "migration:run": "tsx api/cli.ts migrate",
+    "migration:rollback": "tsx api/cli.ts rollback",
+    "migration:rollback:all": "tsx api/cli.ts rollback:all",
+    "migration:reset": "tsx api/cli.ts reset",
+    "migration:seed": "tsx api/cli.ts seed",
+    "migration:make": "tsx api/cli.ts make"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
