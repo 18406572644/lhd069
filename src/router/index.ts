@@ -45,6 +45,12 @@ const routes = [
     component: () => import('@/pages/WantedDetailPage.vue'),
   },
   {
+    path: '/wanted/:id/matches',
+    name: 'wantedMatches',
+    component: () => import('@/pages/MatchResultPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/works',
     name: 'works',
     component: () => import('@/pages/WorksPage.vue'),

@@ -130,6 +130,7 @@ db.exec(`
     content TEXT DEFAULT '',
     is_read BOOLEAN DEFAULT 0,
     related_id TEXT DEFAULT '',
+    extra_data TEXT DEFAULT '',
     created_at TEXT DEFAULT (datetime('now'))
   );
 
@@ -175,6 +176,15 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_material_tags_material ON material_tags(material_id);
   CREATE INDEX IF NOT EXISTS idx_material_tags_tag ON material_tags(tag_id);
 `)
+
+function migrate() {
+  const columns = db.prepare("PRAGMA table_info(messages)").all() as { name: string }[]
+  const columnNames = columns.map(c => c.name)
+  
+  if (!columnNames.includes('extra_data')) {
+    db.prepare("ALTER TABLE messages ADD COLUMN extra_data TEXT DEFAULT ''").run()
+  }
+}
 
 function seed() {
   const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number }
@@ -317,6 +327,7 @@ function seed() {
   }
 }
 
+migrate()
 seed()
 
 export default db

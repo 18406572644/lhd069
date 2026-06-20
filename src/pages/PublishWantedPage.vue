@@ -2,8 +2,10 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import api from '@/lib/api'
 
 const router = useRouter()
+const loading = ref(false)
 
 const form = ref({
   title: '',
@@ -21,8 +23,38 @@ async function handleSubmit() {
     ElMessage.warning('请填写必要信息')
     return
   }
-  ElMessage.success('发布成功')
-  router.push('/wanted')
+
+  loading.value = true
+  try {
+    const fullDescription = form.value.specs
+      ? `${form.value.description}\n\n规格要求：${form.value.specs}`
+      : form.value.description
+
+    const res: any = await api.post('/wanted', {
+      title: form.value.title,
+      category: form.value.category,
+      description: fullDescription,
+      budget_min: form.value.budgetMin || 0,
+      budget_max: form.value.budgetMax || 0,
+    })
+
+    if (res.success) {
+      const matchCount = res.data?.match_count || 0
+      if (matchCount > 0) {
+        ElMessage.success(`发布成功！已为您匹配到 ${matchCount} 个相关材料`)
+        setTimeout(() => {
+          router.push(`/wanted/${res.data.id}/matches`)
+        }, 1000)
+      } else {
+        ElMessage.success('发布成功')
+        router.push('/wanted')
+      }
+    }
+  } catch (e) {
+    console.error('发布失败', e)
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
@@ -60,7 +92,9 @@ async function handleSubmit() {
         </el-form-item>
 
         <div class="pt-4">
-          <button type="submit" class="wood-btn w-full text-base !py-3">发布求购</button>
+          <button type="submit" :disabled="loading" class="wood-btn w-full text-base !py-3 disabled:opacity-50">
+            {{ loading ? '发布中...' : '发布求购' }}
+          </button>
         </div>
       </el-form>
     </div>

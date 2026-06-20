@@ -17,10 +17,25 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response): Promise
       'SELECT * FROM messages WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
     ).all(req.user!.id, pageSize, offset) as any[]
 
+    const processedMessages = messages.map(msg => {
+      let extra = null
+      if (msg.extra_data) {
+        try {
+          extra = JSON.parse(msg.extra_data)
+        } catch {
+          extra = null
+        }
+      }
+      return {
+        ...msg,
+        extra_data: extra
+      }
+    })
+
     res.json({
       success: true,
       data: {
-        items: messages,
+        items: processedMessages,
         total: countRow.total,
         unreadCount: unreadCount.count,
         page,

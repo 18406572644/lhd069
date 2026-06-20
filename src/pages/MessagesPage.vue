@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useMessagesStore } from '@/stores/messages'
-import { User } from 'lucide-vue-next'
+import { useRouter } from 'vue-router'
+import { User, Sparkles, Bell, RefreshCw } from 'lucide-vue-next'
 
+const router = useRouter()
 const messagesStore = useMessagesStore()
 const selectedId = ref<number | null>(null)
 
@@ -16,12 +18,42 @@ const selectedMessage = computed(() => {
   return messages.value.find(m => m.id === selectedId.value) || null
 })
 
+function getMessageIcon(type: string) {
+  switch (type) {
+    case 'match':
+      return Sparkles
+    case 'trade':
+      return RefreshCw
+    default:
+      return Bell
+  }
+}
+
+function getMessageIconClass(type: string) {
+  switch (type) {
+    case 'match':
+      return 'bg-matcha-400/20 text-matcha-500'
+    case 'trade':
+      return 'bg-wood-400/20 text-wood-500'
+    default:
+      return 'bg-wood-400 text-white'
+  }
+}
+
 function selectMessage(id: number) {
   selectedId.value = id
   const msg = messages.value.find(m => m.id === id)
   if (msg && !msg.is_read) {
     messagesStore.markAsRead(id)
   }
+}
+
+function viewMatchResults(wantedId: number) {
+  router.push(`/wanted/${wantedId}/matches`)
+}
+
+function isMatchMessage(msg: any) {
+  return msg.type === 'match' && msg.extra_data?.type === 'wanted_match'
 }
 </script>
 
@@ -46,12 +78,12 @@ function selectMessage(id: number) {
             ]"
           >
             <div class="flex items-center gap-2 mb-1">
-              <div class="w-8 h-8 rounded-full bg-wood-400 flex items-center justify-center flex-shrink-0">
-                <User class="w-4 h-4 text-white" />
+              <div :class="['w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0', getMessageIconClass(msg.type)]">
+                <component :is="getMessageIcon(msg.type)" class="w-4 h-4" />
               </div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between">
-                  <span class="text-sm font-medium text-wood-700 truncate">{{ msg.from_username }}</span>
+                  <span class="text-sm font-medium text-wood-700 truncate">{{ msg.title }}</span>
                   <span v-if="!msg.is_read" class="w-2 h-2 bg-red-500 rounded-full flex-shrink-0"></span>
                 </div>
                 <p class="text-xs text-wood-500 truncate">{{ msg.content }}</p>
@@ -68,19 +100,30 @@ function selectMessage(id: number) {
       <div class="md:col-span-2 fabric-bg rounded-wood-lg border border-wood-300 p-6">
         <div v-if="selectedMessage">
           <div class="flex items-center gap-3 mb-4 pb-4 border-b border-wood-200">
-            <div class="w-10 h-10 rounded-full bg-wood-400 flex items-center justify-center">
-              <User class="w-5 h-5 text-white" />
+            <div :class="['w-10 h-10 rounded-full flex items-center justify-center', getMessageIconClass(selectedMessage.type)]">
+              <component :is="getMessageIcon(selectedMessage.type)" class="w-5 h-5" />
             </div>
             <div>
-              <div class="font-medium text-wood-700">{{ selectedMessage.from_username }}</div>
+              <div class="font-medium text-wood-700">{{ selectedMessage.title }}</div>
               <div class="text-xs text-wood-400">{{ selectedMessage.created_at }}</div>
             </div>
           </div>
           <div class="bg-wood-50 rounded-wood p-4 mb-4">
             <p class="text-sm text-wood-700 leading-relaxed">{{ selectedMessage.content }}</p>
           </div>
-          <div v-if="selectedMessage.trade_id" class="text-sm text-wood-500 mb-4">
-            关联交易 #{{ selectedMessage.trade_id }}
+
+          <div v-if="isMatchMessage(selectedMessage)" class="mt-4">
+            <button
+              @click="viewMatchResults(selectedMessage.extra_data!.wanted_id!)"
+              class="wood-btn flex items-center gap-2"
+            >
+              <Sparkles class="w-4 h-4" />
+              查看匹配结果
+            </button>
+          </div>
+
+          <div v-if="selectedMessage.related_id && !isMatchMessage(selectedMessage)" class="text-sm text-wood-500 mb-4">
+            关联ID: {{ selectedMessage.related_id }}
           </div>
         </div>
         <div v-else class="flex items-center justify-center h-full">
