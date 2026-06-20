@@ -50,4 +50,67 @@ api.interceptors.response.use(
   }
 )
 
+export const postsApi = {
+  getCategories: () => api.get('/posts/categories'),
+  getBadges: () => api.get('/posts/badges'),
+  getReportReasons: () => api.get('/posts/report-reasons'),
+
+  getList: (params?: {
+    page?: number
+    pageSize?: number
+    category?: string
+    keyword?: string
+    sort?: string
+    userId?: number
+  }) => api.get('/posts', { params }),
+
+  getHot: (limit?: number) => api.get('/posts/hot', { params: { limit } }),
+  getEssence: (limit?: number) => api.get('/posts/essence', { params: { limit } }),
+  getExperts: (limit?: number) => api.get('/posts/experts', { params: { limit } }),
+
+  getDetail: (id: number) => api.get(`/posts/${id}`),
+  create: (data: {
+    title: string
+    content: string
+    category: string
+    images?: { url: string }[]
+    tags?: string[]
+    relatedMaterialIds?: number[]
+    relatedWorkIds?: number[]
+  }) => api.post('/posts', data),
+  update: (
+    id: number,
+    data: {
+      title?: string
+      content?: string
+      category?: string
+      images?: { url: string }[]
+      tags?: string[]
+      relatedMaterialIds?: number[]
+      relatedWorkIds?: number[]
+    }
+  ) => api.put(`/posts/${id}`, data),
+  delete: (id: number) => api.delete(`/posts/${id}`),
+
+  like: (id: number) => api.post(`/posts/${id}/like`),
+  favorite: (id: number) => api.post(`/posts/${id}/favorite`),
+  share: (id: number, shareType?: string) => api.post(`/posts/${id}/share`, { share_type: shareType }),
+
+  getComments: (id: number, params?: { page?: number; pageSize?: number }) =>
+    api.get(`/posts/${id}/comments`, { params }),
+  addComment: (id: number, data: { content: string; parent_id?: number }) =>
+    api.post(`/posts/${id}/comments`, data),
+  likeComment: (commentId: number) => api.post(`/posts/comments/${commentId}/like`),
+  deleteComment: (commentId: number) => api.delete(`/posts/comments/${commentId}`),
+
+  reportPost: (id: number, data: { reason: string; description?: string }) =>
+    api.post(`/posts/${id}/report`, data),
+  reportComment: (commentId: number, data: { reason: string; description?: string }) =>
+    api.post(`/posts/comments/${commentId}/report`, data),
+
+  getFavorites: (params?: { page?: number; pageSize?: number }) =>
+    api.get('/posts/user/favorites', { params }),
+  getUserBadges: (userId: number) => api.get(`/posts/user/${userId}/badges`),
+}
+
 export default api

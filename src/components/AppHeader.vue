@@ -17,6 +17,7 @@ const navLinks = [
   { name: '材料市场', path: '/market' },
   { name: '求购', path: '/wanted' },
   { name: '手工作品', path: '/works' },
+  { name: '社区', path: '/community' },
 ]
 
 const unreadCount = computed(() => messagesStore.unreadCount)

@@ -231,6 +231,145 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_points_records_created ON points_records(user_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_check_in_user_date ON check_in_records(user_id, check_in_date DESC);
   CREATE INDEX IF NOT EXISTS idx_check_in_consecutive ON check_in_records(user_id, consecutive_days DESC);
+
+  CREATE TABLE IF NOT EXISTS posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    category TEXT NOT NULL,
+    status TEXT DEFAULT 'published',
+    is_essence BOOLEAN DEFAULT 0,
+    view_count INTEGER DEFAULT 0,
+    like_count INTEGER DEFAULT 0,
+    comment_count INTEGER DEFAULT 0,
+    favorite_count INTEGER DEFAULT 0,
+    share_count INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS post_images (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    url TEXT NOT NULL,
+    sort_order INTEGER DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS post_likes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(post_id, user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS post_favorites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(post_id, user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS post_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    parent_id INTEGER REFERENCES post_comments(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    like_count INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'published',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS post_comment_likes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    comment_id INTEGER NOT NULL REFERENCES post_comments(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(comment_id, user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS post_shares (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    share_type TEXT DEFAULT 'link',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS post_tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(post_id, tag_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS post_related_materials (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    material_id INTEGER NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(post_id, material_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS post_related_works (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    work_id INTEGER NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(post_id, work_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS post_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+    comment_id INTEGER REFERENCES post_comments(id) ON DELETE CASCADE,
+    reporter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    reason TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    status TEXT DEFAULT 'pending',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS community_badges (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT DEFAULT '',
+    icon TEXT DEFAULT '',
+    requirement_type TEXT NOT NULL,
+    requirement_value INTEGER NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS user_community_badges (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    badge_id INTEGER NOT NULL REFERENCES community_badges(id) ON DELETE CASCADE,
+    awarded_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(user_id, badge_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_posts_user ON posts(user_id);
+  CREATE INDEX IF NOT EXISTS idx_posts_category ON posts(category);
+  CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status);
+  CREATE INDEX IF NOT EXISTS idx_posts_essence ON posts(is_essence DESC);
+  CREATE INDEX IF NOT EXISTS idx_posts_hot ON posts(like_count DESC, comment_count DESC, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_post_images_post ON post_images(post_id);
+  CREATE INDEX IF NOT EXISTS idx_post_likes_post ON post_likes(post_id);
+  CREATE INDEX IF NOT EXISTS idx_post_likes_user ON post_likes(user_id);
+  CREATE INDEX IF NOT EXISTS idx_post_favorites_post ON post_favorites(post_id);
+  CREATE INDEX IF NOT EXISTS idx_post_favorites_user ON post_favorites(user_id);
+  CREATE INDEX IF NOT EXISTS idx_post_comments_post ON post_comments(post_id);
+  CREATE INDEX IF NOT EXISTS idx_post_comments_parent ON post_comments(parent_id);
+  CREATE INDEX IF NOT EXISTS idx_post_comments_user ON post_comments(user_id);
+  CREATE INDEX IF NOT EXISTS idx_post_tags_post ON post_tags(post_id);
+  CREATE INDEX IF NOT EXISTS idx_post_tags_tag ON post_tags(tag_id);
+  CREATE INDEX IF NOT EXISTS idx_post_reports_status ON post_reports(status);
+  CREATE INDEX IF NOT EXISTS idx_user_badges_user ON user_community_badges(user_id);
 `)
 
 function migrate() {
@@ -394,10 +533,109 @@ function seed() {
   insertPointsAccount.run(u1.lastInsertRowid, 580, 580, 0, '手工达人')
   insertPointsAccount.run(u2.lastInsertRowid, 320, 320, 0, '手工萌新')
   insertPointsAccount.run(u3.lastInsertRowid, 80, 80, 0, '手工萌新')
-}
 
-migrate()
-seed()
+  const insertBadge = db.prepare(
+    'INSERT INTO community_badges (name, description, icon, requirement_type, requirement_value) VALUES (?, ?, ?, ?, ?)'
+  )
+  for (const badge of COMMUNITY_BADGE_DEFINITIONS) {
+    insertBadge.run(badge.name, badge.description, badge.icon, badge.requirement_type, badge.requirement_value)
+  }
+
+  const insertPost = db.prepare(
+    'INSERT INTO posts (user_id, title, content, category, is_essence, like_count, comment_count, view_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  )
+  const insertPostImage = db.prepare(
+    'INSERT INTO post_images (post_id, url, sort_order) VALUES (?, ?, ?)'
+  )
+  const insertPostTag = db.prepare(
+    'INSERT OR IGNORE INTO post_tags (post_id, tag_id) VALUES (?, ?)'
+  )
+  const insertPostComment = db.prepare(
+    'INSERT INTO post_comments (post_id, user_id, content, like_count) VALUES (?, ?, ?, ?)'
+  )
+  const insertPostLike = db.prepare(
+    'INSERT OR IGNORE INTO post_likes (post_id, user_id) VALUES (?, ?)'
+  )
+
+  const p1 = insertPost.run(
+    u1.lastInsertRowid,
+    '法式刺绣入门教程：从基础针法到精美作品',
+    '大家好，我是小王，今天给大家分享一个法式刺绣的入门教程。\n\n首先，我们需要准备的材料有：\n1. 刺绣绷架\n2. 刺绣布（推荐亚麻布）\n3. 刺绣针\n4. DMC刺绣线\n5. 剪刀\n\n基础针法包括：\n- 平针绣\n- 回针绣\n- 缎面绣\n- 法式结粒绣\n\n后续我会逐步详细讲解每种针法的技巧，敬请关注！',
+    'tutorial',
+    1,
+    128,
+    32,
+    520
+  )
+  insertPostImage.run(p1.lastInsertRowid, '/uploads/sample-embroidery.jpg', 0)
+  insertPostTag.run(p1.lastInsertRowid, tagIds['刺绣'])
+  insertPostTag.run(p1.lastInsertRowid, tagIds['新手'])
+
+  const p2 = insertPost.run(
+    u2.lastInsertRowid,
+    '【材料测评】市面上常见刺绣线品牌对比',
+    '作为一个材料供应商，我接触过很多品牌的刺绣线，今天给大家做一个客观的测评。\n\n1. DMC（法国）\n优点：颜色丰富，色牢度高，不易起毛\n缺点：价格偏高\n\n2. 国产某品牌\n优点：价格实惠，容易购买\n缺点：部分颜色有色差\n\n3. 德国Anchor\n优点：线质顺滑，光泽感好\n缺点：国内不易购买\n\n总结：新手入门推荐DMC基础色号，性价比高。',
+    'review',
+    1,
+    95,
+    45,
+    380
+  )
+
+  const p3 = insertPost.run(
+    u1.lastInsertRowid,
+    '手工打卡Day15：今日完成小鹿胸针',
+    '坚持手工打卡第15天！\n\n今天完成了一个小鹿胸针，使用了法式刺绣的立体绣法，搭配进口金属丝线，成品非常精致。\n\n耗时约3小时，虽然有点累但是很有成就感！\n\n明天准备做一个小狐狸系列，敬请期待~',
+    'diary',
+    0,
+    67,
+    23,
+    210
+  )
+  insertPostImage.run(p3.lastInsertRowid, '/uploads/sample-embroidery.jpg', 0)
+
+  const p4 = insertPost.run(
+    u3.lastInsertRowid,
+    '求助：新手学刺绣应该从哪里开始？',
+    '各位手工大神好！我是刚接触手工的新手小张，最近迷上了刺绣，但是不知道从哪里开始。\n\n想请教大家：\n1. 新手应该买什么样的工具套装？\n2. 有没有推荐的入门教程？\n3. 刚开始练习应该绣什么图案比较合适？\n\n希望大家能给我一些建议，谢谢！',
+    'qa',
+    0,
+    45,
+    56,
+    180
+  )
+
+  const p5 = insertPost.run(
+    u2.lastInsertRowid,
+    '干花相框制作全流程分享',
+    '最近做了几个干花相框，收到了很多朋友的喜欢，今天把制作过程分享给大家。\n\n材料准备：\n- 干花材（玫瑰、雏菊、满天星等）\n- 相框\n- 热熔胶\n- 镊子\n\n制作步骤：\n1. 先设计好花材的摆放位置\n2. 用镊子小心夹起花材，背面涂上热熔胶\n3. 按照设计好的位置粘贴\n4. 全部贴好后合上相框\n\n注意事项：\n- 胶不要涂太多，否则会溢出来影响美观\n- 可以先摆好位置拍张照，再逐个粘贴\n\n希望对大家有帮助！',
+    'tutorial',
+    1,
+    156,
+    41,
+    680
+  )
+  insertPostImage.run(p5.lastInsertRowid, '/uploads/sample-frame.jpg', 0)
+  insertPostTag.run(p5.lastInsertRowid, tagIds['干花'])
+  insertPostTag.run(p5.lastInsertRowid, tagIds['DIY'])
+
+  insertPostComment.run(p4.lastInsertRowid, u1.lastInsertRowid, '新手入门推荐先买基础套装，不要买太好的线，先练手。我刚入门的时候用的是DMC的36色套装，足够用了。', 12)
+  insertPostComment.run(p4.lastInsertRowid, u2.lastInsertRowid, '教程的话推荐B站搜"法式刺绣入门"，有很多免费的优质教程。图案从简单的花朵、叶子开始练习比较好。', 18)
+  insertPostComment.run(p1.lastInsertRowid, u3.lastInsertRowid, '太实用了！正好想学刺绣，收藏了~', 8)
+  insertPostComment.run(p1.lastInsertRowid, u2.lastInsertRowid, '小王老师讲得很清楚，期待后续的针法详解！', 5)
+
+  insertPostLike.run(p1.lastInsertRowid, u2.lastInsertRowid)
+  insertPostLike.run(p1.lastInsertRowid, u3.lastInsertRowid)
+  insertPostLike.run(p5.lastInsertRowid, u1.lastInsertRowid)
+  insertPostLike.run(p5.lastInsertRowid, u3.lastInsertRowid)
+  insertPostLike.run(p4.lastInsertRowid, u1.lastInsertRowid)
+
+  const insertUserBadge = db.prepare(
+    'INSERT OR IGNORE INTO user_community_badges (user_id, badge_id) VALUES (?, ?)'
+  )
+  insertUserBadge.run(u1.lastInsertRowid, 1)
+  insertUserBadge.run(u1.lastInsertRowid, 2)
+}
 
 const POINTS_LEVELS = [
   { name: '手工萌新', minPoints: 0, icon: '🌱' },
@@ -417,7 +655,35 @@ const POINTS_RULES: Record<string, number> = {
   invite_friend: 100,
   check_in_7day_bonus: 50,
   check_in_30day_bonus: 200,
+  publish_post: 25,
+  post_like: 1,
+  post_comment: 5,
+  post_essence: 100,
 }
+
+const POST_CATEGORIES = [
+  { value: 'tutorial', label: '手工教程', icon: '📚' },
+  { value: 'showcase', label: '作品展示', icon: '🎨' },
+  { value: 'review', label: '材料测评', icon: '⭐' },
+  { value: 'diary', label: '打卡日记', icon: '📝' },
+  { value: 'qa', label: '求助问答', icon: '❓' },
+]
+
+const REPORT_REASONS = [
+  { value: 'spam', label: '垃圾广告' },
+  { value: 'inappropriate', label: '不适当内容' },
+  { value: 'copyright', label: '版权侵犯' },
+  { value: 'harassment', label: '骚扰/人身攻击' },
+  { value: 'other', label: '其他' },
+]
+
+const COMMUNITY_BADGE_DEFINITIONS = [
+  { name: '活跃达人', description: '发布10篇以上帖子', icon: '🔥', requirement_type: 'post_count', requirement_value: 10 },
+  { name: '精华达人', description: '获得5篇精华帖', icon: '💎', requirement_type: 'essence_count', requirement_value: 5 },
+  { name: '人气王', description: '累计获得1000个点赞', icon: '🌟', requirement_type: 'total_likes', requirement_value: 1000 },
+  { name: '热心助人', description: '回复50条评论', icon: '💝', requirement_type: 'comment_count', requirement_value: 50 },
+  { name: '社区达人', description: '综合社区贡献第一名', icon: '👑', requirement_type: 'comprehensive', requirement_value: 1 },
+]
 
 function getLevelByPoints(totalEarned: number): string {
   let level = POINTS_LEVELS[0].name
@@ -453,5 +719,8 @@ function addPoints(userId: number, amount: number, source: string, description: 
   ).run(userId, amount > 0 ? 'earn' : 'spend', amount, newBalance, source, description, relatedId)
 }
 
+migrate()
+seed()
+
 export default db
-export { POINTS_LEVELS, POINTS_RULES, getLevelByPoints, ensurePointsAccount, addPoints }
+export { POINTS_LEVELS, POINTS_RULES, POST_CATEGORIES, REPORT_REASONS, COMMUNITY_BADGE_DEFINITIONS, getLevelByPoints, ensurePointsAccount, addPoints }

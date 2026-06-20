@@ -102,6 +102,22 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/community',
+    name: 'community',
+    component: () => import('@/pages/CommunityPage.vue'),
+  },
+  {
+    path: '/community/publish',
+    name: 'publishPost',
+    component: () => import('@/pages/PublishPostPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/community/:id',
+    name: 'communityDetail',
+    component: () => import('@/pages/CommunityDetailPage.vue'),
+  },
+  {
     path: '/login',
     name: 'login',
     component: () => import('@/pages/LoginPage.vue'),

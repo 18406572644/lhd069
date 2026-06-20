@@ -4,9 +4,10 @@ import { useRouter } from 'vue-router'
 import CategoryNav from '@/components/CategoryNav.vue'
 import MaterialCard from '@/components/MaterialCard.vue'
 import WorkCard from '@/components/WorkCard.vue'
+import PostCard from '@/components/PostCard.vue'
 import TagCloud from '@/components/TagCloud.vue'
-import { ArrowRight, Search, Hash } from 'lucide-vue-next'
-import api from '@/lib/api'
+import { ArrowRight, Search, Hash, Users, Sparkles, Flame } from 'lucide-vue-next'
+import api, { postsApi } from '@/lib/api'
 
 const router = useRouter()
 const activeCategory = ref('')
@@ -16,15 +17,19 @@ const heroImage = 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prom
 const featuredMaterials = ref<any[]>([])
 const wantedItems = ref<any[]>([])
 const featuredWorks = ref<any[]>([])
+const essencePosts = ref<any[]>([])
+const hotPosts = ref<any[]>([])
 
 const visible = ref(false)
 
 async function loadData() {
   try {
-    const [materialsRes, wantedRes, worksRes] = await Promise.all([
+    const [materialsRes, wantedRes, worksRes, essenceRes, hotRes] = await Promise.all([
       api.get('/materials', { params: { page: 1, pageSize: 8 } }),
       api.get('/wanted', { params: { page: 1, pageSize: 6 } }),
-      api.get('/works', { params: { page: 1, pageSize: 8 } })
+      api.get('/works', { params: { page: 1, pageSize: 8 } }),
+      postsApi.getEssence(4),
+      postsApi.getHot(4)
     ])
     
     const mats = (materialsRes as any).data?.items || (materialsRes as any).data?.list || (materialsRes as any).data || []
@@ -55,8 +60,60 @@ async function loadData() {
       author: w.author?.username || w.username || '手作艺术家',
       tags: w.tags?.split(',').filter(Boolean) || []
     })).slice(0, 5)
+
+    if ((essenceRes as any).success) {
+      essencePosts.value = (essenceRes as any).data
+    }
+    if ((hotRes as any).success) {
+      hotPosts.value = (hotRes as any).data
+    }
   } catch (e) {
     console.error('Failed to load data:', e)
+  }
+}
+
+const handlePostLike = async (id: number) => {
+  try {
+    const res: any = await postsApi.like(id)
+    if (res.success) {
+      const post = essencePosts.value.find((p) => p.id === id) || hotPosts.value.find((p) => p.id === id)
+      if (post) {
+        post.is_liked = res.data.liked
+        post.like_count = res.data.like_count
+      }
+    }
+  } catch (e) {
+    console.error('点赞失败', e)
+  }
+}
+
+const handlePostFavorite = async (id: number) => {
+  try {
+    const res: any = await postsApi.favorite(id)
+    if (res.success) {
+      const post = essencePosts.value.find((p) => p.id === id) || hotPosts.value.find((p) => p.id === id)
+      if (post) {
+        post.is_favorited = res.data.favorited
+        post.favorite_count = res.data.favorite_count
+      }
+    }
+  } catch (e) {
+    console.error('收藏失败', e)
+  }
+}
+
+const handlePostShare = async (id: number) => {
+  try {
+    const url = `${window.location.origin}/community/${id}`
+    await navigator.clipboard.writeText(url)
+    alert('链接已复制到剪贴板')
+    await postsApi.share(id, 'link')
+    const post = essencePosts.value.find((p) => p.id === id) || hotPosts.value.find((p) => p.id === id)
+    if (post) {
+      post.share_count = (post.share_count || 0) + 1
+    }
+  } catch (e) {
+    console.error('分享失败', e)
   }
 }
 
@@ -156,7 +213,7 @@ onMounted(() => {
       </div>
     </section>
 
-    <section class="container mx-auto px-4 py-8 pb-16">
+    <section class="container mx-auto px-4 py-8">
       <div class="flex items-center justify-between mb-6">
         <div class="rope-border-bottom pb-2">
           <h2 class="font-display text-2xl font-bold text-wood-700">手工作品</h2>
@@ -172,6 +229,97 @@ onMounted(() => {
           :class="['animate-fade-in-up', `stagger-${(index % 8) + 1}`]"
         >
           <WorkCard v-bind="item" />
+        </div>
+      </div>
+    </section>
+
+    <section class="container mx-auto px-4 py-8 pb-16">
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+          <div class="rope-border-bottom pb-2">
+            <h2 class="font-display text-2xl font-bold text-wood-700 flex items-center gap-2">
+              <Users class="w-6 h-6 text-wood-500" />
+              社区动态
+            </h2>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <button @click="router.push('/community?tab=hot')" class="flex items-center gap-1 text-sm text-wood-600 hover:text-wood-400 transition-colors">
+            查看更多 <ArrowRight class="w-4 h-4" />
+          </button>
+          <button @click="router.push('/community/publish')" class="wood-btn text-sm !px-4 !py-1.5">
+            发布动态
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div>
+          <div class="flex items-center gap-2 mb-4">
+            <Sparkles class="w-5 h-5 text-yellow-500" />
+            <h3 class="font-display text-lg font-bold text-wood-700">精华帖子</h3>
+          </div>
+          <div class="space-y-4">
+            <PostCard
+              v-for="(post, index) in essencePosts"
+              :key="post.id"
+              :id="post.id"
+              :title="post.title"
+              :content="post.content"
+              :category="post.category"
+              :images="post.images"
+              :author="post.username"
+              :avatar="post.avatar"
+              :user-badges="post.user_badges"
+              :tags="post.tags"
+              :like-count="post.like_count"
+              :comment-count="post.comment_count"
+              :favorite-count="post.favorite_count"
+              :view-count="post.view_count"
+              :is-essence="post.is_essence"
+              :is-liked="post.is_liked"
+              :is-favorited="post.is_favorited"
+              :created-at="post.created_at"
+              :class="['animate-fade-in-up', `stagger-${index + 1}`]"
+              @like="handlePostLike"
+              @favorite="handlePostFavorite"
+              @share="handlePostShare"
+            />
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center gap-2 mb-4">
+            <Flame class="w-5 h-5 text-orange-500" />
+            <h3 class="font-display text-lg font-bold text-wood-700">热门帖子</h3>
+          </div>
+          <div class="space-y-4">
+            <PostCard
+              v-for="(post, index) in hotPosts"
+              :key="post.id"
+              :id="post.id"
+              :title="post.title"
+              :content="post.content"
+              :category="post.category"
+              :images="post.images"
+              :author="post.username"
+              :avatar="post.avatar"
+              :user-badges="post.user_badges"
+              :tags="post.tags"
+              :like-count="post.like_count"
+              :comment-count="post.comment_count"
+              :favorite-count="post.favorite_count"
+              :view-count="post.view_count"
+              :is-essence="post.is_essence"
+              :is-liked="post.is_liked"
+              :is-favorited="post.is_favorited"
+              :created-at="post.created_at"
+              :class="['animate-fade-in-up', `stagger-${index + 1}`]"
+              @like="handlePostLike"
+              @favorite="handlePostFavorite"
+              @share="handlePostShare"
+            />
+          </div>
         </div>
       </div>
     </section>
