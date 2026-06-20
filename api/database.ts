@@ -175,6 +175,21 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_tags_use_count ON tags(use_count DESC);
   CREATE INDEX IF NOT EXISTS idx_material_tags_material ON material_tags(material_id);
   CREATE INDEX IF NOT EXISTS idx_material_tags_tag ON material_tags(tag_id);
+
+  CREATE TABLE IF NOT EXISTS browse_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    target_type TEXT NOT NULL,
+    target_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    cover_image TEXT DEFAULT '',
+    extra_data TEXT DEFAULT '',
+    viewed_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_browse_history_unique ON browse_history(user_id, target_type, target_id);
+  CREATE INDEX IF NOT EXISTS idx_browse_history_user_time ON browse_history(user_id, viewed_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_browse_history_type ON browse_history(user_id, target_type, viewed_at DESC);
 `)
 
 function migrate() {

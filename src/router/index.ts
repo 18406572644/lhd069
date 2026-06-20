@@ -90,6 +90,12 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/footprint',
+    name: 'footprint',
+    component: () => import('@/pages/FootprintPage.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/login',
     name: 'login',
     component: () => import('@/pages/LoginPage.vue'),

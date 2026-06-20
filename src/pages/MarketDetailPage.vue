@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useMaterialsStore } from '@/stores/materials'
 import { useTradesStore } from '@/stores/trades'
+import { useBrowseHistoryStore } from '@/stores/browseHistory'
 import ImageGallery from '@/components/ImageGallery.vue'
 import SpecTable from '@/components/SpecTable.vue'
 import { ArrowRightLeft, ShoppingCart, User, Star, Loader2 } from 'lucide-vue-next'
@@ -14,6 +15,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const materialsStore = useMaterialsStore()
 const tradesStore = useTradesStore()
+const browseHistoryStore = useBrowseHistoryStore()
 const tradeDialogVisible = ref(false)
 const tradeType = ref<'buy' | 'swap'>('buy')
 const tradeMessage = ref('')
@@ -46,6 +48,25 @@ async function handleTrade() {
     ElMessage.error('操作失败，请稍后重试')
   }
 }
+
+watch(
+  () => material.value,
+  (m) => {
+    if (m && auth.isLoggedIn) {
+      browseHistoryStore.addBrowseRecord(
+        'material',
+        m.id,
+        m.title,
+        m.images?.[0] || '',
+        {
+          price: m.price,
+          category: m.category,
+          username: m.user?.username
+        }
+      )
+    }
+  }
+)
 
 onMounted(() => {
   if (materialId.value) {

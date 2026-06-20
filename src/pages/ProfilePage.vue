@@ -1,14 +1,19 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useMaterialsStore } from '@/stores/materials'
 import { useTradesStore } from '@/stores/trades'
+import { useBrowseHistoryStore, type BrowseTargetType } from '@/stores/browseHistory'
 import TradeStatusBadge from '@/components/TradeStatusBadge.vue'
-import { User, Star, Edit } from 'lucide-vue-next'
-import { ElMessage } from 'element-plus'
+import { User, Star, Edit, History, Trash2, Package, Palette, Store, Clock, X } from 'lucide-vue-next'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
+const router = useRouter()
 const auth = useAuthStore()
+const browseHistoryStore = useBrowseHistoryStore()
 const activeTab = ref('profile')
+const activeFootprintType = ref<BrowseTargetType | 'all'>('all')
 
 const editMode = ref(false)
 const profileForm = ref({
@@ -36,6 +41,89 @@ function saveProfile() {
   editMode.value = false
   ElMessage.success('资料已更新')
 }
+
+const footprintTypeOptions: { value: BrowseTargetType | 'all'; label: string; icon: any }[] = [
+  { value: 'all', label: '全部', icon: History },
+  { value: 'material', label: '材料', icon: Package },
+  { value: 'work', label: '作品', icon: Palette },
+  { value: 'shop', label: '店铺', icon: Store }
+]
+
+const groupedFootprintByDate = computed(() => {
+  const groups: Record<string, typeof browseHistoryStore.items> = {}
+  for (const item of browseHistoryStore.items) {
+    const date = item.viewed_at.slice(0, 10)
+    if (!groups[date]) {
+      groups[date] = []
+    }
+    groups[date].push(item)
+  }
+  return groups
+})
+
+function formatFootprintDate(dateStr: string): string {
+  const today = new Date().toISOString().slice(0, 10)
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+  if (dateStr === today) return '今天'
+  if (dateStr === yesterday) return '昨天'
+  return dateStr
+}
+
+function formatFootprintTime(dateStr: string): string {
+  return dateStr.slice(11, 16)
+}
+
+async function handleFootprintTypeChange(type: BrowseTargetType | 'all') {
+  activeFootprintType.value = type
+  await browseHistoryStore.fetchBrowseHistory(type === 'all' ? undefined : type, 1)
+}
+
+async function handleClearFootprint() {
+  try {
+    await ElMessageBox.confirm(
+      activeFootprintType.value === 'all'
+        ? '确定要清空所有浏览记录吗？'
+        : `确定要清空所有${footprintTypeOptions.find(t => t.value === activeFootprintType.value)?.label}浏览记录吗？`,
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    await browseHistoryStore.clearHistory(activeFootprintType.value === 'all' ? undefined : activeFootprintType.value)
+    ElMessage.success('已清空浏览记录')
+  } catch (e: any) {
+    if (e !== 'cancel') {
+      console.error(e)
+    }
+  }
+}
+
+async function handleDeleteFootprintItem(id: number) {
+  try {
+    await browseHistoryStore.deleteRecord(id)
+    ElMessage.success('已删除')
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+function goToFootprintDetail(item: any) {
+  router.push(browseHistoryStore.getTargetUrl(item))
+}
+
+watch(activeTab, (tab) => {
+  if (tab === 'footprint') {
+    browseHistoryStore.fetchBrowseHistory()
+  }
+})
+
+onMounted(() => {
+  if (activeTab.value === 'footprint') {
+    browseHistoryStore.fetchBrowseHistory()
+  }
+})
 </script>
 
 <template>
@@ -147,6 +235,134 @@ function saveProfile() {
             <p class="text-sm text-wood-600">{{ record.comment }}</p>
             <div class="text-xs text-wood-400 mt-1">{{ record.created_at }}</div>
           </div>
+        </div>
+      </el-tab-pane>
+
+      <el-tab-pane label="我的足迹" name="footprint">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2 flex-wrap">
+            <button
+              v-for="opt in footprintTypeOptions"
+              :key="opt.value"
+              @click="handleFootprintTypeChange(opt.value)"
+              :class="[
+                'px-3 py-1.5 rounded-full text-xs flex items-center gap-1 transition-all',
+                activeFootprintType === opt.value
+                  ? 'bg-wood-600 text-white shadow-md'
+                  : 'bg-wood-100 text-wood-600 hover:bg-wood-200'
+              ]"
+            >
+              <component :is="opt.icon" class="w-3.5 h-3.5" />
+              {{ opt.label }}
+            </button>
+          </div>
+          <button
+            v-if="browseHistoryStore.total > 0"
+            @click="handleClearFootprint"
+            class="wood-btn-outline text-xs flex items-center gap-1 text-red-500 border-red-300 hover:bg-red-50 !py-1 !px-3"
+          >
+            <Trash2 class="w-3.5 h-3.5" />
+            清空
+          </button>
+        </div>
+
+        <div v-if="browseHistoryStore.loading" class="text-center py-12 text-wood-500">
+          <div class="animate-pulse">加载中...</div>
+        </div>
+
+        <div v-else-if="browseHistoryStore.items.length === 0" class="text-center py-12">
+          <div class="w-16 h-16 mx-auto mb-3 bg-wood-100 rounded-full flex items-center justify-center">
+            <History class="w-8 h-8 text-wood-400" />
+          </div>
+          <p class="text-wood-500 mb-1">暂无浏览记录</p>
+          <p class="text-xs text-wood-400">浏览记录保留 {{ browseHistoryStore.retentionDays }} 天</p>
+        </div>
+
+        <div v-else class="space-y-4">
+          <div v-for="(items, date) in groupedFootprintByDate" :key="date" class="space-y-2">
+            <div class="flex items-center gap-1.5 text-xs text-wood-500">
+              <Clock class="w-3.5 h-3.5" />
+              <span class="font-medium">{{ formatFootprintDate(date) }}</span>
+            </div>
+
+            <div class="fabric-bg rounded-wood-lg border border-wood-300 overflow-hidden wood-shadow">
+              <div
+                v-for="(item, index) in items"
+                :key="item.id"
+                :class="[
+                  'flex items-center gap-3 p-3 cursor-pointer hover:bg-wood-50 transition-colors group',
+                  index < items.length - 1 ? 'border-b border-wood-200' : ''
+                ]"
+                @click="goToFootprintDetail(item)"
+              >
+                <div class="w-12 h-12 rounded-wood bg-wood-200 overflow-hidden flex-shrink-0">
+                  <img
+                    v-if="item.cover_image"
+                    :src="item.cover_image"
+                    :alt="item.title"
+                    class="w-full h-full object-cover"
+                  />
+                  <div v-else class="w-full h-full flex items-center justify-center">
+                    <component
+                      :is="
+                        item.target_type === 'material'
+                          ? Package
+                          : item.target_type === 'work'
+                          ? Palette
+                          : Store
+                      "
+                      class="w-5 h-5 text-wood-400"
+                    />
+                  </div>
+                </div>
+
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-1.5 mb-0.5">
+                    <span
+                      :class="[
+                        'text-xs px-1.5 py-0.5 rounded-full',
+                        item.target_type === 'material'
+                          ? 'bg-wood-400/15 text-wood-600'
+                          : item.target_type === 'work'
+                          ? 'bg-purple-100 text-purple-600'
+                          : 'bg-matcha-400/20 text-matcha-500'
+                      ]"
+                    >
+                      {{ browseHistoryStore.getTypeLabel(item.target_type) }}
+                    </span>
+                  </div>
+                  <h4 class="text-sm font-medium text-wood-700 truncate">{{ item.title }}</h4>
+                  <div class="text-xs text-wood-400 flex items-center gap-1">
+                    <Clock class="w-3 h-3" />
+                    {{ formatFootprintTime(item.viewed_at) }}
+                  </div>
+                </div>
+
+                <button
+                  @click.stop="handleDeleteFootprintItem(item.id)"
+                  class="p-1.5 rounded-full text-wood-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                  title="删除记录"
+                >
+                  <X class="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="browseHistoryStore.totalPages > 1" class="flex justify-center pt-2">
+            <el-pagination
+              v-model:current-page="browseHistoryStore.page"
+              :page-size="browseHistoryStore.pageSize"
+              :total="browseHistoryStore.total"
+              layout="prev, pager, next"
+              small
+              @current-change="(p: number) => browseHistoryStore.fetchBrowseHistory(activeFootprintType === 'all' ? undefined : activeFootprintType, p)"
+            />
+          </div>
+        </div>
+
+        <div class="mt-6 text-center text-xs text-wood-400">
+          浏览记录保留 {{ browseHistoryStore.retentionDays }} 天，过期自动清除
         </div>
       </el-tab-pane>
     </el-tabs>

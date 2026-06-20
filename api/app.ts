@@ -17,6 +17,7 @@ import shopRoutes from './routes/shops.js'
 import messageRoutes from './routes/messages.js'
 import userRoutes from './routes/users.js'
 import tagRoutes from './routes/tags.js'
+import browseHistoryRoutes from './routes/browseHistory.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -41,6 +42,7 @@ app.use('/api/shops', shopRoutes)
 app.use('/api/messages', messageRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/tags', tagRoutes)
+app.use('/api/browse-history', browseHistoryRoutes)
 
 app.use(
   '/api/health',
