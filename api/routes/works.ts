@@ -1,5 +1,5 @@
 import { Router, type Response } from 'express'
-import db from '../database.js'
+import db, { addPoints } from '../database.js'
 import { authMiddleware, optionalAuth, type AuthRequest } from '../middleware/auth.js'
 
 const router = Router()
@@ -102,6 +102,9 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response): Promis
     }
 
     const work = db.prepare('SELECT * FROM works WHERE id = ?').get(workId)
+
+    addPoints(req.user!.id, 30, 'publish_work', `发布作品「${title}」+30积分`, String(workId))
+
     res.status(201).json({ success: true, data: work })
   } catch (error) {
     res.status(500).json({ success: false, error: '创建作品失败' })

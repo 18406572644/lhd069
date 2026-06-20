@@ -190,6 +190,47 @@ db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS idx_browse_history_unique ON browse_history(user_id, target_type, target_id);
   CREATE INDEX IF NOT EXISTS idx_browse_history_user_time ON browse_history(user_id, viewed_at DESC);
   CREATE INDEX IF NOT EXISTS idx_browse_history_type ON browse_history(user_id, target_type, viewed_at DESC);
+
+  CREATE TABLE IF NOT EXISTS points_accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    balance INTEGER NOT NULL DEFAULT 0,
+    total_earned INTEGER NOT NULL DEFAULT 0,
+    total_spent INTEGER NOT NULL DEFAULT 0,
+    level TEXT NOT NULL DEFAULT '手工萌新',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS points_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    balance_after INTEGER NOT NULL,
+    source TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    related_id TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS check_in_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    check_in_date TEXT NOT NULL,
+    consecutive_days INTEGER NOT NULL DEFAULT 1,
+    points_earned INTEGER NOT NULL,
+    bonus_type TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(user_id, check_in_date)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_points_accounts_user ON points_accounts(user_id);
+  CREATE INDEX IF NOT EXISTS idx_points_records_user ON points_records(user_id);
+  CREATE INDEX IF NOT EXISTS idx_points_records_type ON points_records(user_id, type);
+  CREATE INDEX IF NOT EXISTS idx_points_records_created ON points_records(user_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_check_in_user_date ON check_in_records(user_id, check_in_date DESC);
+  CREATE INDEX IF NOT EXISTS idx_check_in_consecutive ON check_in_records(user_id, consecutive_days DESC);
 `)
 
 function migrate() {
@@ -340,9 +381,71 @@ function seed() {
       insertMaterialTag.run(Number(materialId), tagIds[tagName])
     }
   }
+
+  const insertPointsAccount = db.prepare(
+    'INSERT INTO points_accounts (user_id, balance, total_earned, total_spent, level) VALUES (?, ?, ?, ?, ?)'
+  )
+  insertPointsAccount.run(u1.lastInsertRowid, 580, 580, 0, '手工达人')
+  insertPointsAccount.run(u2.lastInsertRowid, 320, 320, 0, '手工萌新')
+  insertPointsAccount.run(u3.lastInsertRowid, 80, 80, 0, '手工萌新')
 }
 
 migrate()
 seed()
 
+const POINTS_LEVELS = [
+  { name: '手工萌新', minPoints: 0, icon: '🌱' },
+  { name: '手工爱好者', minPoints: 200, icon: '🌿' },
+  { name: '手工达人', minPoints: 500, icon: '🎨' },
+  { name: '手工大师', minPoints: 1500, icon: '👑' },
+  { name: '手工传奇', minPoints: 5000, icon: '💎' },
+]
+
+const POINTS_RULES: Record<string, number> = {
+  check_in: 10,
+  publish_material: 20,
+  publish_wanted: 10,
+  publish_work: 30,
+  trade_complete: 50,
+  review: 15,
+  invite_friend: 100,
+  check_in_7day_bonus: 50,
+  check_in_30day_bonus: 200,
+}
+
+function getLevelByPoints(totalEarned: number): string {
+  let level = POINTS_LEVELS[0].name
+  for (const l of POINTS_LEVELS) {
+    if (totalEarned >= l.minPoints) {
+      level = l.name
+    }
+  }
+  return level
+}
+
+function ensurePointsAccount(userId: number): void {
+  const existing = db.prepare('SELECT id FROM points_accounts WHERE user_id = ?').get(userId)
+  if (!existing) {
+    db.prepare('INSERT INTO points_accounts (user_id, balance, total_earned, total_spent, level) VALUES (?, 0, 0, 0, ?)').run(userId, POINTS_LEVELS[0].name)
+  }
+}
+
+function addPoints(userId: number, amount: number, source: string, description: string, relatedId: string = ''): void {
+  ensurePointsAccount(userId)
+  const account = db.prepare('SELECT * FROM points_accounts WHERE user_id = ?').get(userId) as any
+  const newBalance = account.balance + amount
+  const newTotalEarned = account.total_earned + (amount > 0 ? amount : 0)
+  const newTotalSpent = account.total_spent + (amount < 0 ? Math.abs(amount) : 0)
+  const newLevel = getLevelByPoints(newTotalEarned)
+
+  db.prepare(
+    'UPDATE points_accounts SET balance = ?, total_earned = ?, total_spent = ?, level = ?, updated_at = datetime(\'now\') WHERE user_id = ?'
+  ).run(newBalance, newTotalEarned, newTotalSpent, newLevel, userId)
+
+  db.prepare(
+    'INSERT INTO points_records (user_id, type, amount, balance_after, source, description, related_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(userId, amount > 0 ? 'earn' : 'spend', amount, newBalance, source, description, relatedId)
+}
+
 export default db
+export { POINTS_LEVELS, POINTS_RULES, getLevelByPoints, ensurePointsAccount, addPoints }

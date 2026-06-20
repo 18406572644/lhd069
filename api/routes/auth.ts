@@ -1,7 +1,7 @@
 import { Router, type Response } from 'express'
 import bcryptjs from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import db from '../database.js'
+import db, { ensurePointsAccount } from '../database.js'
 import { authMiddleware, type AuthRequest, JWT_SECRET } from '../middleware/auth.js'
 
 const router = Router()
@@ -29,6 +29,8 @@ router.post('/register', async (req: AuthRequest, res: Response): Promise<void> 
 
     const user = { id: Number(result.lastInsertRowid), username, email }
     const token = generateToken(user)
+
+    ensurePointsAccount(user.id)
 
     res.status(201).json({ success: true, data: { token, user } })
   } catch (error) {

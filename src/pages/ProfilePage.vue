@@ -6,12 +6,14 @@ import { useMaterialsStore } from '@/stores/materials'
 import { useTradesStore } from '@/stores/trades'
 import { useBrowseHistoryStore, type BrowseTargetType } from '@/stores/browseHistory'
 import TradeStatusBadge from '@/components/TradeStatusBadge.vue'
-import { User, Star, Edit, History, Trash2, Package, Palette, Store, Clock, X } from 'lucide-vue-next'
+import { User, Star, Edit, History, Trash2, Package, Palette, Store, Clock, X, Coins, Award, ChevronRight } from 'lucide-vue-next'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { usePointsStore } from '@/stores/points'
 
 const router = useRouter()
 const auth = useAuthStore()
 const browseHistoryStore = useBrowseHistoryStore()
+const pointsStore = usePointsStore()
 const activeTab = ref('profile')
 const activeFootprintType = ref<BrowseTargetType | 'all'>('all')
 
@@ -123,6 +125,7 @@ onMounted(() => {
   if (activeTab.value === 'footprint') {
     browseHistoryStore.fetchBrowseHistory()
   }
+  pointsStore.fetchAccount()
 })
 </script>
 
@@ -147,6 +150,26 @@ onMounted(() => {
             <button @click="editMode = !editMode" class="ml-auto wood-btn-outline text-sm flex items-center gap-1">
               <Edit class="w-4 h-4" /> {{ editMode ? '取消' : '编辑' }}
             </button>
+          </div>
+
+          <div
+            class="flex items-center justify-between p-4 rounded-wood-lg bg-gradient-to-r from-wood-100 to-amber-50 border border-wood-200 mb-6 cursor-pointer hover:shadow-md transition-shadow"
+            @click="router.push('/points')"
+          >
+            <div class="flex items-center gap-4">
+              <div class="flex items-center gap-2">
+                <Coins class="w-5 h-5 text-amber-500" />
+                <span class="text-sm text-wood-600">积分余额</span>
+                <span class="text-lg font-bold text-wood-700">{{ pointsStore.account?.balance ?? 0 }}</span>
+              </div>
+              <div class="h-6 w-px bg-wood-300"></div>
+              <div class="flex items-center gap-2">
+                <Award class="w-5 h-5 text-amber-500" />
+                <span class="text-sm text-wood-600">等级</span>
+                <span class="text-sm font-bold text-wood-700">{{ pointsStore.account?.level ?? '手工萌新' }}</span>
+              </div>
+            </div>
+            <ChevronRight class="w-4 h-4 text-wood-400" />
           </div>
 
           <div class="space-y-4">

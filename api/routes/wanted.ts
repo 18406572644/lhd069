@@ -1,5 +1,5 @@
 import { Router, type Response } from 'express'
-import db from '../database.js'
+import db, { addPoints } from '../database.js'
 import { authMiddleware, optionalAuth, type AuthRequest } from '../middleware/auth.js'
 
 const router = Router()
@@ -207,6 +207,8 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response): Promis
     if (matchedMaterials.length > 0) {
       createMatchMessage(wantedId, matchedMaterials)
     }
+
+    addPoints(req.user!.id, 10, 'publish_wanted', `发布求购「${title}」+10积分`, String(wantedId))
 
     res.status(201).json({ 
       success: true, 

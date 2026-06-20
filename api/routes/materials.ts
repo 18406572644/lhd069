@@ -1,7 +1,7 @@
 import { Router, type Response } from 'express'
 import { parse } from 'csv-parse'
 import { stringify } from 'csv-stringify'
-import db from '../database.js'
+import db, { addPoints } from '../database.js'
 import { authMiddleware, optionalAuth, type AuthRequest } from '../middleware/auth.js'
 
 const router = Router()
@@ -214,6 +214,9 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response): Promis
 
     const material = db.prepare('SELECT * FROM materials WHERE id = ?').get(materialId) as any
     const tagsMap = getTagsForMaterials([materialId])
+
+    addPoints(req.user!.id, 20, 'publish_material', `发布材料「${title}」+20积分`, String(materialId))
+
     res.status(201).json({
       success: true,
       data: {

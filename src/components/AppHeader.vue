@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useMessagesStore } from '@/stores/messages'
-import { Bell, Menu, X, User, LogOut, Package, History } from 'lucide-vue-next'
+import { Bell, Menu, X, User, LogOut, Package, History, Coins } from 'lucide-vue-next'
 
 const router = useRouter()
 const route = useRoute()
@@ -115,6 +115,9 @@ onMounted(() => {
               <button @click="navigate('/footprint'); userDropdownVisible = false" class="w-full px-4 py-2 text-left text-sm text-wood-700 hover:bg-wood-200 flex items-center gap-2">
                 <History class="w-4 h-4" /> 我的足迹
               </button>
+              <button @click="navigate('/points'); userDropdownVisible = false" class="w-full px-4 py-2 text-left text-sm text-wood-700 hover:bg-wood-200 flex items-center gap-2">
+                <Coins class="w-4 h-4" /> 积分中心
+              </button>
               <div class="border-t border-wood-300 my-1"></div>
               <button @click="handleLogout" class="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-wood-200 flex items-center gap-2">
                 <LogOut class="w-4 h-4" /> 退出登录
@@ -161,6 +164,7 @@ onMounted(() => {
           <button @click="navigate('/profile')" class="w-full px-4 py-2 text-left text-sm text-wood-600 hover:bg-wood-200 rounded-wood">个人资料</button>
           <button @click="navigate('/shop/manage')" class="w-full px-4 py-2 text-left text-sm text-wood-600 hover:bg-wood-200 rounded-wood">我的店铺</button>
           <button @click="navigate('/footprint')" class="w-full px-4 py-2 text-left text-sm text-wood-600 hover:bg-wood-200 rounded-wood">我的足迹</button>
+          <button @click="navigate('/points')" class="w-full px-4 py-2 text-left text-sm text-wood-600 hover:bg-wood-200 rounded-wood">积分中心</button>
           <button @click="handleLogout" class="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-wood-200 rounded-wood">退出登录</button>
         </div>
         <div v-else class="flex gap-2 pt-2 border-t border-wood-300 mt-2">

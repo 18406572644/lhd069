@@ -1,5 +1,5 @@
 import { Router, type Response } from 'express'
-import db from '../database.js'
+import db, { addPoints } from '../database.js'
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js'
 
 const router = Router()
@@ -105,6 +105,11 @@ router.put('/:id/status', authMiddleware, async (req: AuthRequest, res: Response
 
     db.prepare("UPDATE trades SET status = ?, updated_at = datetime('now') WHERE id = ?").run(status, id)
 
+    if (status === 'completed') {
+      addPoints(trade.requester_id, 50, 'trade_complete', '完成交易 +50积分', String(id))
+      addPoints(trade.responder_id, 50, 'trade_complete', '完成交易 +50积分', String(id))
+    }
+
     const notifyUserId = trade.requester_id === req.user!.id ? trade.responder_id : trade.requester_id
     const statusText: Record<string, string> = { accepted: '已接受', rejected: '已拒绝', completed: '已完成', cancelled: '已取消' }
 
@@ -156,6 +161,8 @@ router.post('/:id/review', authMiddleware, async (req: AuthRequest, res: Respons
     const result = db.prepare(
       'INSERT INTO reviews (trade_id, reviewer_id, reviewee_id, rating, comment) VALUES (?, ?, ?, ?, ?)'
     ).run(id, req.user!.id, revieweeId, rating, comment || '')
+
+    addPoints(req.user!.id, 15, 'review', '发表评价 +15积分', String(id))
 
     res.status(201).json({ success: true, data: { id: Number(result.lastInsertRowid) } })
   } catch (error) {
