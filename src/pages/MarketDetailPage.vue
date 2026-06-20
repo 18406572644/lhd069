@@ -72,7 +72,7 @@ onMounted(() => {
 
       <div>
         <div class="fabric-bg rounded-wood-lg p-6 wood-shadow border border-wood-300">
-          <div class="flex items-center gap-2 mb-3">
+          <div class="flex items-center gap-2 mb-3 flex-wrap">
             <span class="text-xs bg-wood-400/15 text-wood-600 px-3 py-1 rounded-full">{{ material.category }}</span>
             <span v-if="material.can_swap" class="text-xs bg-matcha-400/20 text-matcha-500 px-3 py-1 rounded-full flex items-center gap-1">
               <ArrowRightLeft class="w-3 h-3" /> 可互换
@@ -83,7 +83,20 @@ onMounted(() => {
 
           <div class="text-3xl font-bold text-wood-400 mb-4">¥{{ material.price }}</div>
 
-          <p class="text-sm text-wood-600 leading-relaxed mb-6">{{ material.description }}</p>
+          <p class="text-sm text-wood-600 leading-relaxed mb-4">{{ material.description }}</p>
+
+          <div v-if="material.tags && material.tags.length > 0" class="mb-5">
+            <div class="flex flex-wrap gap-2">
+              <router-link
+                v-for="tag in material.tags"
+                :key="tag.id"
+                :to="`/tag/${encodeURIComponent(tag.name)}`"
+                class="inline-flex items-center px-3 py-1 text-xs bg-wood-400/15 text-wood-600 rounded-full hover:bg-wood-400/25 transition-colors no-underline"
+              >
+                # {{ tag.name }}
+              </router-link>
+            </div>
+          </div>
 
           <SpecTable :specs="material.specs" />
 

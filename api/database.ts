@@ -153,8 +153,27 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_reviews_reviewee ON reviews(reviewee_id);
   CREATE INDEX IF NOT EXISTS idx_works_user ON works(user_id);
   CREATE INDEX IF NOT EXISTS idx_comments_work ON comments(work_id);
+  CREATE TABLE IF NOT EXISTS tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    use_count INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS material_tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    material_id INTEGER NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
+    tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(material_id, tag_id)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id);
   CREATE INDEX IF NOT EXISTS idx_messages_read ON messages(is_read);
+  CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
+  CREATE INDEX IF NOT EXISTS idx_tags_use_count ON tags(use_count DESC);
+  CREATE INDEX IF NOT EXISTS idx_material_tags_material ON material_tags(material_id);
+  CREATE INDEX IF NOT EXISTS idx_material_tags_tag ON material_tags(tag_id);
 `)
 
 function seed() {
@@ -249,6 +268,53 @@ function seed() {
     'INSERT INTO shops (user_id, name, description, cover_image) VALUES (?, ?, ?, ?)'
   )
   insertShop.run(u1.lastInsertRowid, '小王的手工坊', '专注高品质手工材料，主营进口布料和刺绣用品', '/uploads/sample-shop.jpg')
+
+  const insertTag = db.prepare(
+    'INSERT OR IGNORE INTO tags (name, use_count) VALUES (?, ?)'
+  )
+  const insertMaterialTag = db.prepare(
+    'INSERT OR IGNORE INTO material_tags (material_id, tag_id) VALUES (?, ?)'
+  )
+  const getTagId = db.prepare('SELECT id FROM tags WHERE name = ?')
+
+  const seedTags: { name: string; useCount: number }[] = [
+    { name: '进口', useCount: 3 },
+    { name: '刺绣', useCount: 4 },
+    { name: '布艺', useCount: 3 },
+    { name: '天然', useCount: 2 },
+    { name: '新手', useCount: 2 },
+    { name: '高品质', useCount: 3 },
+    { name: '套装', useCount: 4 },
+    { name: '散尾款', useCount: 1 },
+    { name: '复古', useCount: 2 },
+    { name: '闲置', useCount: 5 },
+    { name: 'DIY', useCount: 4 },
+    { name: '手工', useCount: 6 },
+  ]
+
+  const tagIds: Record<string, number> = {}
+  for (const t of seedTags) {
+    insertTag.run(t.name, t.useCount)
+    const row = getTagId.get(t.name) as { id: number }
+    tagIds[t.name] = row.id
+  }
+
+  const materialTagMap: Record<number, string[]> = {
+    [Number(m1.lastInsertRowid)]: ['进口', '布艺', '散尾款', '高品质', '手工'],
+    [Number(m2.lastInsertRowid)]: ['进口', '刺绣', '套装', '高品质'],
+    [Number(m3.lastInsertRowid)]: ['天然', 'DIY', '手工'],
+    [Number(m4.lastInsertRowid)]: ['新手', '套装', '手工'],
+    [Number(m5.lastInsertRowid)]: ['复古', 'DIY', '手工'],
+    [Number(m6.lastInsertRowid)]: ['闲置', '新手', 'DIY'],
+    [Number(m7.lastInsertRowid)]: ['套装', 'DIY', '手工'],
+    [Number(m8.lastInsertRowid)]: ['闲置', '高品质', '手工'],
+  }
+
+  for (const [materialId, tagNames] of Object.entries(materialTagMap)) {
+    for (const tagName of tagNames) {
+      insertMaterialTag.run(Number(materialId), tagIds[tagName])
+    }
+  }
 }
 
 seed()

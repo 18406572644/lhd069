@@ -5,6 +5,7 @@ import { useMaterialsStore } from '@/stores/materials'
 import { Plus, Minus } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
 import api from '@/lib/api'
+import TagInput from '@/components/TagInput.vue'
 
 const router = useRouter()
 const store = useMaterialsStore()
@@ -17,6 +18,7 @@ const form = ref({
   can_swap: false,
   images: [] as string[],
   specs: [] as { key: string; value: string }[],
+  tags: [] as string[],
 })
 
 const categoryOptions = ['布料', '线材', '皮具', '花艺', '配件', '蜡烛', '颜料', '工具', '木质', '其他']
@@ -95,7 +97,8 @@ async function handleSubmit() {
       price: form.value.price,
       is_swappable: form.value.can_swap,
       images: form.value.images.map(url => ({ url })),
-      specs: form.value.specs
+      specs: form.value.specs,
+      tags: form.value.tags
     } as any)
     ElMessage.success('发布成功')
     router.push('/market')
@@ -180,6 +183,10 @@ async function handleSubmit() {
               <Plus class="w-4 h-4" /> 添加参数
             </button>
           </div>
+        </el-form-item>
+
+        <el-form-item label="标签">
+          <TagInput v-model="form.tags" :max-tags="5" placeholder="输入自定义标签，回车添加，支持自动补全已有标签" />
         </el-form-item>
 
         <div class="pt-4">

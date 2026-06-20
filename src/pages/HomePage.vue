@@ -4,7 +4,8 @@ import { useRouter } from 'vue-router'
 import CategoryNav from '@/components/CategoryNav.vue'
 import MaterialCard from '@/components/MaterialCard.vue'
 import WorkCard from '@/components/WorkCard.vue'
-import { ArrowRight, Search } from 'lucide-vue-next'
+import TagCloud from '@/components/TagCloud.vue'
+import { ArrowRight, Search, Hash } from 'lucide-vue-next'
 import api from '@/lib/api'
 
 const router = useRouter()
@@ -95,6 +96,16 @@ onMounted(() => {
       <div class="fabric-bg rounded-wood-xl p-6 wood-shadow">
         <h2 class="font-display text-xl font-bold text-wood-700 mb-4">材料分类</h2>
         <CategoryNav v-model="activeCategory" />
+      </div>
+    </section>
+
+    <section class="container mx-auto px-4 py-8">
+      <div class="fabric-bg rounded-wood-xl p-6 wood-shadow border border-wood-300">
+        <div class="flex items-center gap-2 mb-4">
+          <Hash class="w-5 h-5 text-wood-500" />
+          <h2 class="font-display text-xl font-bold text-wood-700">热门标签</h2>
+        </div>
+        <TagCloud :limit="20" />
       </div>
     </section>
 

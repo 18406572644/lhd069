@@ -6,12 +6,57 @@ import { authMiddleware, optionalAuth, type AuthRequest } from '../middleware/au
 
 const router = Router()
 
+function getTagsForMaterials(materialIds: number[]): Record<number, any[]> {
+  if (materialIds.length === 0) return {}
+  const placeholders = materialIds.map(() => '?').join(',')
+  const tags = db.prepare(
+    `SELECT t.id, t.name, mt.material_id FROM tags t
+     JOIN material_tags mt ON t.id = mt.tag_id
+     WHERE mt.material_id IN (${placeholders})
+     ORDER BY t.use_count DESC, t.name ASC`
+  ).all(...materialIds) as any[]
+  const tagsMap: Record<number, any[]> = {}
+  tags.forEach(t => {
+    if (!tagsMap[t.material_id]) tagsMap[t.material_id] = []
+    tagsMap[t.material_id].push({ id: t.id, name: t.name })
+  })
+  return tagsMap
+}
+
+function syncMaterialTags(materialId: number, tagNames: string[]) {
+  const uniqueTags = [...new Set(tagNames.map(t => t.trim()).filter(t => t.length > 0))].slice(0, 5)
+
+  db.prepare('DELETE FROM material_tags WHERE material_id = ?').run(materialId)
+
+  for (const tagName of uniqueTags) {
+    const existing = db.prepare('SELECT * FROM tags WHERE name = ?').get(tagName) as any
+    let tagId: number
+    if (existing) {
+      tagId = existing.id
+      db.prepare('UPDATE tags SET use_count = use_count + 1 WHERE id = ?').run(tagId)
+    } else {
+      const result = db.prepare('INSERT INTO tags (name, use_count) VALUES (?, 1)').run(tagName)
+      tagId = Number(result.lastInsertRowid)
+    }
+    db.prepare('INSERT OR IGNORE INTO material_tags (material_id, tag_id) VALUES (?, ?)').run(materialId, tagId)
+  }
+}
+
+function recountTagUsage() {
+  const tags = db.prepare('SELECT id FROM tags').all() as { id: number }[]
+  for (const tag of tags) {
+    const count = db.prepare('SELECT COUNT(*) as cnt FROM material_tags WHERE tag_id = ?').get(tag.id) as { cnt: number }
+    db.prepare('UPDATE tags SET use_count = ? WHERE id = ?').run(count.cnt, tag.id)
+  }
+}
+
 router.get('/', optionalAuth, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1)
     const pageSize = Math.min(50, Math.max(1, parseInt(req.query.pageSize as string) || 10))
     const category = req.query.category as string
     const keyword = req.query.keyword as string
+    const tag = req.query.tag as string
     const sort = req.query.sort as string || 'latest'
     const minPrice = parseFloat(req.query.minPrice as string)
     const maxPrice = parseFloat(req.query.maxPrice as string)
@@ -20,7 +65,13 @@ router.get('/', optionalAuth, async (req: AuthRequest, res: Response): Promise<v
 
     let whereClause = 'WHERE m.is_active = 1'
     const params: any[] = []
+    let joinClause = ''
 
+    if (tag) {
+      joinClause = 'JOIN material_tags mt ON m.id = mt.material_id JOIN tags t ON mt.tag_id = t.id'
+      whereClause += ' AND t.name = ?'
+      params.push(tag)
+    }
     if (category) {
       whereClause += ' AND m.category = ?'
       params.push(category)
@@ -48,10 +99,10 @@ router.get('/', optionalAuth, async (req: AuthRequest, res: Response): Promise<v
     if (sort === 'swap') orderBy = 'm.is_swappable DESC, m.created_at DESC'
     if (sort === 'latest') orderBy = 'm.created_at DESC'
 
-    const countRow = db.prepare(`SELECT COUNT(*) as total FROM materials m ${whereClause}`).get(...params) as { total: number }
+    const countRow = db.prepare(`SELECT COUNT(DISTINCT m.id) as total FROM materials m ${joinClause} ${whereClause}`).get(...params) as { total: number }
 
     const materials = db.prepare(
-      `SELECT m.*, u.username, u.avatar FROM materials m JOIN users u ON m.user_id = u.id ${whereClause} ORDER BY ${orderBy} LIMIT ? OFFSET ?`
+      `SELECT DISTINCT m.*, u.username, u.avatar FROM materials m ${joinClause} JOIN users u ON m.user_id = u.id ${whereClause} ORDER BY ${orderBy} LIMIT ? OFFSET ?`
     ).all(...params, pageSize, offset) as any[]
 
     const materialIds = materials.map(m => m.id)
@@ -73,10 +124,13 @@ router.get('/', optionalAuth, async (req: AuthRequest, res: Response): Promise<v
       })
     }
 
+    const tagsMap = getTagsForMaterials(materialIds)
+
     const items = materials.map(m => ({
       ...m,
       images: imagesMap[m.id] || [],
-      specs: specsMap[m.id] || []
+      specs: specsMap[m.id] || [],
+      tags: tagsMap[m.id] || []
     }))
 
     res.json({
@@ -110,8 +164,17 @@ router.get('/:id', optionalAuth, async (req: AuthRequest, res: Response): Promis
 
     const images = db.prepare('SELECT * FROM material_images WHERE material_id = ? ORDER BY sort_order').all(id)
     const specs = db.prepare('SELECT * FROM material_specs WHERE material_id = ?').all(id)
+    const tagsMap = getTagsForMaterials([id])
 
-    res.json({ success: true, data: { ...material, images, specs } })
+    res.json({
+      success: true,
+      data: {
+        ...material,
+        images,
+        specs,
+        tags: tagsMap[id] || []
+      }
+    })
   } catch (error) {
     res.status(500).json({ success: false, error: '获取材料详情失败' })
   }
@@ -119,7 +182,7 @@ router.get('/:id', optionalAuth, async (req: AuthRequest, res: Response): Promis
 
 router.post('/', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { title, category, description, price, is_swappable, images, specs } = req.body
+    const { title, category, description, price, is_swappable, images, specs, tags } = req.body
     if (!title || !category) {
       res.status(400).json({ success: false, error: '标题和分类不能为空' })
       return
@@ -145,8 +208,19 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response): Promis
       })
     }
 
-    const material = db.prepare('SELECT * FROM materials WHERE id = ?').get(materialId)
-    res.status(201).json({ success: true, data: material })
+    if (Array.isArray(tags)) {
+      syncMaterialTags(materialId, tags)
+    }
+
+    const material = db.prepare('SELECT * FROM materials WHERE id = ?').get(materialId) as any
+    const tagsMap = getTagsForMaterials([materialId])
+    res.status(201).json({
+      success: true,
+      data: {
+        ...material,
+        tags: tagsMap[materialId] || []
+      }
+    })
   } catch (error) {
     res.status(500).json({ success: false, error: '创建材料失败' })
   }
@@ -166,7 +240,7 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res: Response): Prom
       return
     }
 
-    const { title, category, description, price, is_swappable, is_active, images, specs } = req.body
+    const { title, category, description, price, is_swappable, is_active, images, specs, tags } = req.body
 
     db.prepare(
       `UPDATE materials SET title = ?, category = ?, description = ?, price = ?, is_swappable = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?`
@@ -196,8 +270,21 @@ router.put('/:id', authMiddleware, async (req: AuthRequest, res: Response): Prom
       })
     }
 
-    const updated = db.prepare('SELECT * FROM materials WHERE id = ?').get(id)
-    res.json({ success: true, data: updated })
+    if (Array.isArray(tags)) {
+      db.prepare('DELETE FROM material_tags WHERE material_id = ?').run(id)
+      recountTagUsage()
+      syncMaterialTags(id, tags)
+    }
+
+    const updated = db.prepare('SELECT * FROM materials WHERE id = ?').get(id) as any
+    const tagsMap = getTagsForMaterials([id])
+    res.json({
+      success: true,
+      data: {
+        ...updated,
+        tags: tagsMap[id] || []
+      }
+    })
   } catch (error) {
     res.status(500).json({ success: false, error: '更新材料失败' })
   }
@@ -218,6 +305,7 @@ router.delete('/:id', authMiddleware, async (req: AuthRequest, res: Response): P
     }
 
     db.prepare('DELETE FROM materials WHERE id = ?').run(id)
+    recountTagUsage()
     res.json({ success: true, data: null })
   } catch (error) {
     res.status(500).json({ success: false, error: '删除材料失败' })

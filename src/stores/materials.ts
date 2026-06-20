@@ -2,6 +2,13 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '@/lib/api'
 
+interface Tag {
+  id: number
+  name: string
+  use_count?: number
+  created_at?: string
+}
+
 interface Material {
   id: number
   title: string
@@ -12,6 +19,7 @@ interface Material {
   is_swappable?: number | boolean
   can_swap: boolean
   specs: { key: string; value: string }[]
+  tags: Tag[]
   user_id: number
   username: string
   avatar?: string
@@ -67,6 +75,7 @@ export const useMaterialsStore = defineStore('materials', () => {
         can_swap: !!m.is_swappable,
         is_active: !!m.is_active,
         images: Array.isArray(m.images) ? m.images.map((img: any) => img.url || img) : [],
+        tags: Array.isArray(m.tags) ? m.tags : [],
         user: {
           id: m.user_id,
           username: m.username,
@@ -92,6 +101,7 @@ export const useMaterialsStore = defineStore('materials', () => {
           can_swap: !!m.is_swappable,
           is_active: !!m.is_active,
           images: Array.isArray(m.images) ? m.images.map((img: any) => img.url || img) : [],
+          tags: Array.isArray(m.tags) ? m.tags : [],
           user: {
             id: m.user_id,
             username: m.username,

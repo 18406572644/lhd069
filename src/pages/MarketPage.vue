@@ -3,7 +3,8 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useMaterialsStore } from '@/stores/materials'
 import MaterialCard from '@/components/MaterialCard.vue'
 import CategoryNav from '@/components/CategoryNav.vue'
-import { Search, SlidersHorizontal } from 'lucide-vue-next'
+import TagCloud from '@/components/TagCloud.vue'
+import { Search, SlidersHorizontal, Hash } from 'lucide-vue-next'
 
 const store = useMaterialsStore()
 const keyword = ref('')
@@ -128,6 +129,13 @@ watch(
               <input type="checkbox" v-model="canSwapOnly" class="w-4 h-4 rounded border-wood-300 text-wood-400 focus:ring-wood-400" />
               <span class="text-sm text-wood-600">仅显示可互换</span>
             </label>
+          </div>
+
+          <div class="border-t border-wood-300 pt-4">
+            <h4 class="text-sm font-medium text-wood-600 mb-3 flex items-center gap-1.5">
+              <Hash class="w-4 h-4" /> 热门标签
+            </h4>
+            <TagCloud :limit="15" />
           </div>
         </div>
       </aside>

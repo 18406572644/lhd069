@@ -16,6 +16,7 @@ import workRoutes from './routes/works.js'
 import shopRoutes from './routes/shops.js'
 import messageRoutes from './routes/messages.js'
 import userRoutes from './routes/users.js'
+import tagRoutes from './routes/tags.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -39,6 +40,7 @@ app.use('/api/works', workRoutes)
 app.use('/api/shops', shopRoutes)
 app.use('/api/messages', messageRoutes)
 app.use('/api/users', userRoutes)
+app.use('/api/tags', tagRoutes)
 
 app.use(
   '/api/health',

@@ -24,6 +24,11 @@ const routes = [
     component: () => import('@/pages/MarketDetailPage.vue'),
   },
   {
+    path: '/tag/:name',
+    name: 'tagDetail',
+    component: () => import('@/pages/TagDetailPage.vue'),
+  },
+  {
     path: '/wanted',
     name: 'wanted',
     component: () => import('@/pages/WantedPage.vue'),
