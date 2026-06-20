@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
 import api from '@/lib/api'
+import ImageUploader from '@/components/ImageUploader.vue'
 
 const router = useRouter()
 
@@ -14,66 +14,19 @@ const form = ref({
   images: [] as string[],
 })
 
-const uploading = ref(false)
-const fileInputRef = ref<HTMLInputElement | null>(null)
-
-function handleRemoveImage(index: number) {
-  form.value.images.splice(index, 1)
-}
-
-function triggerFileSelect() {
-  fileInputRef.value?.click()
-}
-
-async function handleFileChange(e: Event) {
-  const target = e.target as HTMLInputElement
-  const files = target.files
-  if (!files || files.length === 0) return
-
-  uploading.value = true
-  try {
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      const formData = new FormData()
-      formData.append('files', file)
-
-      const res: any = await api.post('/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
-
-      if (res.success && res.data && res.data.urls && res.data.urls.length > 0) {
-        form.value.images.push(res.data.urls[0])
-      } else {
-        const reader = new FileReader()
-        reader.onload = (ev) => {
-          form.value.images.push(ev.target?.result as string)
-        }
-        reader.readAsDataURL(file)
-      }
-    }
-    ElMessage.success('图片上传成功')
-  } catch (err) {
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]
-      const reader = new FileReader()
-      reader.onload = (ev) => {
-        form.value.images.push(ev.target?.result as string)
-      }
-      reader.readAsDataURL(file)
-    }
-    ElMessage.warning('使用本地预览模式')
-  } finally {
-    uploading.value = false
-    if (fileInputRef.value) fileInputRef.value.value = ''
-  }
-}
+const submitting = ref(false)
 
 async function handleSubmit() {
   if (!form.value.title) {
     ElMessage.warning('请填写标题')
     return
   }
+  if (form.value.images.length === 0) {
+    ElMessage.warning('请至少上传一张图片')
+    return
+  }
   try {
+    submitting.value = true
     await api.post('/works', {
       title: form.value.title,
       description: form.value.description,
@@ -84,6 +37,8 @@ async function handleSubmit() {
     router.push('/works')
   } catch {
     ElMessage.error('发布失败')
+  } finally {
+    submitting.value = false
   }
 }
 </script>
@@ -107,40 +62,14 @@ async function handleSubmit() {
         </el-form-item>
 
         <el-form-item label="作品图片">
-          <div class="flex flex-wrap gap-3">
-            <div v-for="(img, index) in form.images" :key="index" class="relative w-24 h-24 rounded-wood overflow-hidden border border-wood-300">
-              <img :src="img" class="w-full h-full object-cover" alt="" />
-              <button
-                type="button"
-                @click="handleRemoveImage(index)"
-                class="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
-              >
-                ×
-              </button>
-            </div>
-            <input
-              ref="fileInputRef"
-              type="file"
-              accept="image/*"
-              multiple
-              class="hidden"
-              @change="handleFileChange"
-            />
-            <button
-              type="button"
-              @click="triggerFileSelect"
-              :disabled="uploading"
-              class="w-24 h-24 rounded-wood border-2 border-dashed border-wood-300 flex items-center justify-center hover:border-wood-400 transition-colors disabled:opacity-50"
-            >
-              <Plus v-if="!uploading" class="w-6 h-6 text-wood-400" />
-              <span v-else class="text-xs text-wood-400">上传中...</span>
-            </button>
-          </div>
-          <p class="text-xs text-wood-500 mt-2">支持 JPG/PNG/GIF/WebP 格式，最多上传 9 张图片</p>
+          <ImageUploader v-model="form.images" :max-count="9" />
+          <p class="text-xs text-wood-500 mt-2">支持 JPG/PNG/GIF/WebP 格式，拖拽可调整主图顺序</p>
         </el-form-item>
 
         <div class="pt-4">
-          <button type="submit" class="wood-btn w-full text-base !py-3">发布作品</button>
+          <button type="submit" class="wood-btn w-full text-base !py-3" :disabled="submitting">
+            {{ submitting ? '发布中...' : '发布作品' }}
+          </button>
         </div>
       </el-form>
     </div>
