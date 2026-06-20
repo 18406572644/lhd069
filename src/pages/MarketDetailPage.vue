@@ -7,7 +7,7 @@ import { useTradesStore } from '@/stores/trades'
 import { useBrowseHistoryStore } from '@/stores/browseHistory'
 import ImageGallery from '@/components/ImageGallery.vue'
 import SpecTable from '@/components/SpecTable.vue'
-import { ArrowRightLeft, ShoppingCart, User, Star, Loader2 } from 'lucide-vue-next'
+import { ArrowRightLeft, ShoppingCart, User, Star, Loader2, Pin } from 'lucide-vue-next'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const route = useRoute()
@@ -97,6 +97,9 @@ onMounted(() => {
             <span class="text-xs bg-wood-400/15 text-wood-600 px-3 py-1 rounded-full">{{ material.category }}</span>
             <span v-if="material.can_swap" class="text-xs bg-matcha-400/20 text-matcha-500 px-3 py-1 rounded-full flex items-center gap-1">
               <ArrowRightLeft class="w-3 h-3" /> 可互换
+            </span>
+            <span v-if="material.is_pinned" class="text-xs bg-amber-500 text-white px-3 py-1 rounded-full flex items-center gap-1">
+              <Pin class="w-3 h-3" /> 置顶
             </span>
           </div>
 

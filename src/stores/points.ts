@@ -87,25 +87,20 @@ export const usePointsStore = defineStore('points', () => {
         checkInStatus.value.consecutive_days = res.data.consecutive_days
         checkInStatus.value.check_in_dates.unshift(new Date().toISOString().slice(0, 10))
       }
-      if (account.value) {
-        account.value.balance = res.data.balance
-        account.value.level = res.data.level
-        account.value.total_earned += res.data.points_earned
-      }
+      await fetchAccount()
       return res.data
     } catch (error: any) {
       throw error
     }
   }
 
-  async function consumePoints(amount: number, source: string, description: string) {
+  async function consumePoints(amount: number, source: string, description: string, materialId?: number) {
     try {
-      const res: any = await api.post('/points/consume', { amount, source, description })
-      if (account.value) {
-        account.value.balance = res.data.balance
-        account.value.level = res.data.level
-      }
-      return res.data
+      const payload: any = { amount, source, description }
+      if (materialId) payload.material_id = materialId
+      await api.post('/points/consume', payload)
+      await fetchAccount()
+      return account.value
     } catch (error: any) {
       throw error
     }

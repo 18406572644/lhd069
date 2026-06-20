@@ -192,7 +192,7 @@ router.get('/rules', async (_req: AuthRequest, res: Response): Promise<void> => 
 router.post('/consume', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!.id
-    const { amount, source, description } = req.body
+    const { amount, source, description, material_id } = req.body
 
     if (!amount || amount <= 0) {
       res.status(400).json({ success: false, error: '消耗积分数量必须大于0' })
@@ -207,7 +207,23 @@ router.post('/consume', authMiddleware, async (req: AuthRequest, res: Response):
       return
     }
 
+    if (source === 'pin' && material_id) {
+      const material = db.prepare('SELECT * FROM materials WHERE id = ? AND user_id = ?').get(material_id, userId) as any
+      if (!material) {
+        res.status(404).json({ success: false, error: '材料不存在或不属于您' })
+        return
+      }
+      if (material.is_pinned) {
+        res.status(400).json({ success: false, error: '该材料已处于置顶状态' })
+        return
+      }
+    }
+
     addPoints(userId, -amount, source || 'consume', description || '积分消耗')
+
+    if (source === 'pin' && material_id) {
+      db.prepare("UPDATE materials SET is_pinned = 1, updated_at = datetime('now') WHERE id = ? AND user_id = ?").run(material_id, userId)
+    }
 
     const updated = db.prepare('SELECT * FROM points_accounts WHERE user_id = ?').get(userId) as any
     res.json({

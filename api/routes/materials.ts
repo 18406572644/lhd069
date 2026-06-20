@@ -92,12 +92,12 @@ router.get('/', optionalAuth, async (req: AuthRequest, res: Response): Promise<v
       whereClause += ' AND m.is_swappable = 1'
     }
 
-    let orderBy = 'm.created_at DESC'
-    if (sort === 'price_asc' || sort === 'price') orderBy = 'm.price ASC'
-    if (sort === 'price_desc') orderBy = 'm.price DESC'
-    if (sort === 'popular') orderBy = 'm.view_count DESC'
-    if (sort === 'swap') orderBy = 'm.is_swappable DESC, m.created_at DESC'
-    if (sort === 'latest') orderBy = 'm.created_at DESC'
+    let orderBy = 'm.is_pinned DESC, m.created_at DESC'
+    if (sort === 'price_asc' || sort === 'price') orderBy = 'm.is_pinned DESC, m.price ASC'
+    if (sort === 'price_desc') orderBy = 'm.is_pinned DESC, m.price DESC'
+    if (sort === 'popular') orderBy = 'm.is_pinned DESC, m.view_count DESC'
+    if (sort === 'swap') orderBy = 'm.is_pinned DESC, m.is_swappable DESC, m.created_at DESC'
+    if (sort === 'latest') orderBy = 'm.is_pinned DESC, m.created_at DESC'
 
     const countRow = db.prepare(`SELECT COUNT(DISTINCT m.id) as total FROM materials m ${joinClause} ${whereClause}`).get(...params) as { total: number }
 
@@ -388,6 +388,29 @@ router.get('/batch-export', authMiddleware, async (req: AuthRequest, res: Respon
     res.send(csvBuffer)
   } catch (error) {
     res.status(500).json({ success: false, error: '批量导出失败' })
+  }
+})
+
+router.put('/:id/pin', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id)
+    const { pinned } = req.body
+
+    const material = db.prepare('SELECT * FROM materials WHERE id = ?').get(id) as any
+    if (!material) {
+      res.status(404).json({ success: false, error: '材料不存在' })
+      return
+    }
+    if (material.user_id !== req.user!.id) {
+      res.status(403).json({ success: false, error: '无权操作此材料' })
+      return
+    }
+
+    db.prepare("UPDATE materials SET is_pinned = ?, updated_at = datetime('now') WHERE id = ?").run(pinned ? 1 : 0, id)
+    const updated = db.prepare('SELECT * FROM materials WHERE id = ?').get(id)
+    res.json({ success: true, data: updated })
+  } catch (error) {
+    res.status(500).json({ success: false, error: '置顶操作失败' })
   }
 })
 

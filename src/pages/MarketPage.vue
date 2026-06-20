@@ -28,7 +28,8 @@ const displayMaterials = computed(() => {
     category: m.category,
     image: m.images?.[0]?.url || 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=craft%20material%20wooden%20fabric&image_size=square',
     canSwap: !!m.is_swappable,
-    username: m.publisher?.username || m.username || '手作爱好者'
+    username: m.publisher?.username || m.username || '手作爱好者',
+    isPinned: !!m.is_pinned,
   }))
 })
 

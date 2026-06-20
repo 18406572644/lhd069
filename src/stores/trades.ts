@@ -8,6 +8,8 @@ interface Trade {
   material_title?: string
   responder_id: number
   requester_id: number
+  requester_name?: string
+  responder_name?: string
   from_user_id?: number
   from_username?: string
   to_user_id?: number

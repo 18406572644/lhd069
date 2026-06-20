@@ -112,6 +112,7 @@ async function handleCheckIn() {
       msg += '（含连续30天奖励 +200）'
     }
     ElMessage.success(msg)
+    store.fetchRecords(recordsType.value, 1)
   } catch (error: any) {
     const msg = error?.response?.data?.error || '签到失败'
     ElMessage.error(msg)
@@ -128,6 +129,7 @@ async function handleConsume(option: typeof consumeOptions[0]) {
   try {
     await store.consumePoints(option.amount, option.source, option.description)
     ElMessage.success(`${option.label}兑换成功！消耗 ${option.amount} 积分`)
+    store.fetchRecords(recordsType.value, 1)
   } catch (error: any) {
     const msg = error?.response?.data?.error || '兑换失败'
     ElMessage.error(msg)

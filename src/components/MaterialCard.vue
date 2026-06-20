@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRightLeft } from 'lucide-vue-next'
+import { ArrowRightLeft, Pin } from 'lucide-vue-next'
 
 defineProps<{
   id: number
@@ -9,14 +9,21 @@ defineProps<{
   image: string
   canSwap?: boolean
   username?: string
+  isPinned?: boolean
 }>()
 </script>
 
 <template>
   <router-link
     :to="`/market/${id}`"
-    class="block fabric-bg rounded-wood-lg overflow-hidden wood-shadow-hover border border-wood-300 no-underline group"
+    class="block fabric-bg rounded-wood-lg overflow-hidden wood-shadow-hover border border-wood-300 no-underline group relative"
   >
+    <div
+      v-if="isPinned"
+      class="absolute top-2 left-2 z-10 flex items-center gap-1 bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full shadow"
+    >
+      <Pin class="w-3 h-3" /> 置顶
+    </div>
     <div class="aspect-square overflow-hidden bg-wood-200">
       <img
         :src="image"

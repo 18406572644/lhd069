@@ -240,6 +240,12 @@ function migrate() {
   if (!columnNames.includes('extra_data')) {
     db.prepare("ALTER TABLE messages ADD COLUMN extra_data TEXT DEFAULT ''").run()
   }
+
+  const materialColumns = db.prepare("PRAGMA table_info(materials)").all() as { name: string }[]
+  const materialColumnNames = materialColumns.map(c => c.name)
+  if (!materialColumnNames.includes('is_pinned')) {
+    db.prepare("ALTER TABLE materials ADD COLUMN is_pinned BOOLEAN DEFAULT 0").run()
+  }
 }
 
 function seed() {

@@ -26,6 +26,7 @@ interface Material {
   status: string
   created_at: string
   is_active?: number | boolean
+  is_pinned?: boolean
   view_count?: number
   user?: {
     id: number
@@ -74,6 +75,7 @@ export const useMaterialsStore = defineStore('materials', () => {
         is_swappable: !!m.is_swappable,
         can_swap: !!m.is_swappable,
         is_active: !!m.is_active,
+        is_pinned: !!m.is_pinned,
         images: Array.isArray(m.images) ? m.images.map((img: any) => img.url || img) : [],
         tags: Array.isArray(m.tags) ? m.tags : [],
         user: {
@@ -100,6 +102,7 @@ export const useMaterialsStore = defineStore('materials', () => {
           is_swappable: !!m.is_swappable,
           can_swap: !!m.is_swappable,
           is_active: !!m.is_active,
+          is_pinned: !!m.is_pinned,
           images: Array.isArray(m.images) ? m.images.map((img: any) => img.url || img) : [],
           tags: Array.isArray(m.tags) ? m.tags : [],
           user: {
@@ -131,6 +134,11 @@ export const useMaterialsStore = defineStore('materials', () => {
     await api.delete(`/materials/${id}`)
   }
 
+  async function pinMaterial(id: number, pinned: boolean) {
+    const res: any = await api.put(`/materials/${id}/pin`, { pinned })
+    return res.data
+  }
+
   function setFilters(newFilters: Filters) {
     filters.value = { ...filters.value, ...newFilters }
     pagination.value.page = 1
@@ -152,6 +160,7 @@ export const useMaterialsStore = defineStore('materials', () => {
     createMaterial,
     updateMaterial,
     deleteMaterial,
+    pinMaterial,
     setFilters,
     setPage,
   }
