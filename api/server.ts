@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken'
 import app from './app.js'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'craft-market-secret-2024'
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT || 3002
 
 const server = createServer(app)
 

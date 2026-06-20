@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useMaterialsStore } from '@/stores/materials'
 import { Plus, Minus } from 'lucide-vue-next'
 import { ElMessage } from 'element-plus'
+import api from '@/lib/api'
 
 const router = useRouter()
 const store = useMaterialsStore()
@@ -18,14 +19,9 @@ const form = ref({
   specs: [] as { key: string; value: string }[],
 })
 
-const categoryOptions = ['木质', '布艺', '皮具', '编织', '纸艺', '颜料', '金属', '其他']
+const categoryOptions = ['布料', '线材', '皮具', '花艺', '配件', '蜡烛', '颜料', '工具', '木质', '其他']
 const uploading = ref(false)
-
-const mockUploadUrls = [
-  'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=wooden%20craft%20material%20photography&image_size=square',
-  'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=fabric%20textile%20closeup%20craft&image_size=square',
-  'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=leather%20craft%20material%20closeup&image_size=square',
-]
+const fileInputRef = ref<HTMLInputElement | null>(null)
 
 function addSpec() {
   form.value.specs.push({ key: '', value: '' })
@@ -35,13 +31,55 @@ function removeSpec(index: number) {
   form.value.specs.splice(index, 1)
 }
 
-function handleUploadSuccess(_response: any, _uploadFile: any, _uploadFiles: any) {
-  const url = mockUploadUrls[Math.floor(Math.random() * mockUploadUrls.length)]
-  form.value.images.push(url)
-}
-
 function handleRemoveImage(index: number) {
   form.value.images.splice(index, 1)
+}
+
+function triggerFileSelect() {
+  fileInputRef.value?.click()
+}
+
+async function handleFileChange(e: Event) {
+  const target = e.target as HTMLInputElement
+  const files = target.files
+  if (!files || files.length === 0) return
+
+  uploading.value = true
+  try {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const formData = new FormData()
+      formData.append('files', file)
+
+      const res: any = await api.post('/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+
+      if (res.success && res.data && res.data.urls && res.data.urls.length > 0) {
+        form.value.images.push(res.data.urls[0])
+      } else {
+        const reader = new FileReader()
+        reader.onload = (ev) => {
+          form.value.images.push(ev.target?.result as string)
+        }
+        reader.readAsDataURL(file)
+      }
+    }
+    ElMessage.success('图片上传成功')
+  } catch (err) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        form.value.images.push(ev.target?.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+    ElMessage.warning('使用本地预览模式')
+  } finally {
+    uploading.value = false
+    if (fileInputRef.value) fileInputRef.value.value = ''
+  }
 }
 
 async function handleSubmit() {
@@ -50,7 +88,15 @@ async function handleSubmit() {
     return
   }
   try {
-    await store.createMaterial(form.value as any)
+    await store.createMaterial({
+      title: form.value.title,
+      category: form.value.category,
+      description: form.value.description,
+      price: form.value.price,
+      is_swappable: form.value.can_swap,
+      images: form.value.images.map(url => ({ url })),
+      specs: form.value.specs
+    } as any)
     ElMessage.success('发布成功')
     router.push('/market')
   } catch {
@@ -64,7 +110,7 @@ async function handleSubmit() {
     <h1 class="font-display text-2xl font-bold text-wood-700 mb-6">发布闲置材料</h1>
 
     <div class="fabric-bg rounded-wood-lg p-6 wood-shadow border border-wood-300">
-      <el-form label-position="top" class="space-y-2">
+      <el-form label-position="top" class="space-y-2" @submit.prevent="handleSubmit">
         <el-form-item label="材料名称">
           <el-input v-model="form.title" placeholder="给材料取个好名字" />
         </el-form-item>
@@ -93,25 +139,32 @@ async function handleSubmit() {
             <div v-for="(img, index) in form.images" :key="index" class="relative w-24 h-24 rounded-wood overflow-hidden border border-wood-300">
               <img :src="img" class="w-full h-full object-cover" alt="" />
               <button
+                type="button"
                 @click="handleRemoveImage(index)"
                 class="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
               >
                 ×
               </button>
             </div>
-            <el-upload
-              :show-file-list="false"
-              :on-success="handleUploadSuccess"
-              action="#"
-              :auto-upload="false"
-              :on-change="() => handleUploadSuccess(null, null, null)"
+            <input
+              ref="fileInputRef"
+              type="file"
               accept="image/*"
+              multiple
+              class="hidden"
+              @change="handleFileChange"
+            />
+            <button
+              type="button"
+              @click="triggerFileSelect"
+              :disabled="uploading"
+              class="w-24 h-24 rounded-wood border-2 border-dashed border-wood-300 flex items-center justify-center hover:border-wood-400 transition-colors disabled:opacity-50"
             >
-              <div class="w-24 h-24 rounded-wood border-2 border-dashed border-wood-300 flex items-center justify-center hover:border-wood-400 transition-colors cursor-pointer">
-                <Plus class="w-6 h-6 text-wood-400" />
-              </div>
-            </el-upload>
+              <Plus v-if="!uploading" class="w-6 h-6 text-wood-400" />
+              <span v-else class="text-xs text-wood-400">上传中...</span>
+            </button>
           </div>
+          <p class="text-xs text-wood-500 mt-2">支持 JPG/PNG/GIF/WebP 格式，最多上传 9 张图片</p>
         </el-form-item>
 
         <el-form-item label="规格参数">
@@ -119,18 +172,18 @@ async function handleSubmit() {
             <div v-for="(spec, index) in form.specs" :key="index" class="flex gap-2 items-center">
               <el-input v-model="spec.key" placeholder="参数名" class="flex-1" />
               <el-input v-model="spec.value" placeholder="参数值" class="flex-1" />
-              <button @click="removeSpec(index)" class="p-1 text-red-500 hover:text-red-600">
+              <button type="button" @click="removeSpec(index)" class="p-1 text-red-500 hover:text-red-600">
                 <Minus class="w-4 h-4" />
               </button>
             </div>
-            <button @click="addSpec" class="text-sm text-wood-600 hover:text-wood-400 flex items-center gap-1">
+            <button type="button" @click="addSpec" class="text-sm text-wood-600 hover:text-wood-400 flex items-center gap-1">
               <Plus class="w-4 h-4" /> 添加参数
             </button>
           </div>
         </el-form-item>
 
         <div class="pt-4">
-          <button @click="handleSubmit" class="wood-btn w-full text-base !py-3">发布材料</button>
+          <button type="submit" class="wood-btn w-full text-base !py-3">发布材料</button>
         </div>
       </el-form>
     </div>

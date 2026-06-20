@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useMaterialsStore } from '@/stores/materials'
 import MaterialCard from '@/components/MaterialCard.vue'
 import CategoryNav from '@/components/CategoryNav.vue'
@@ -19,33 +19,52 @@ const sortOptions = [
   { label: '最多互换', value: 'swap' },
 ]
 
-const mockMaterials = [
-  { id: 1, title: '进口榉木板材 30x20cm', price: 68, category: '木质', image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=beech%20wood%20planks%20craft%20material&image_size=square', canSwap: true, username: '木匠老张' },
-  { id: 2, title: '手工染色彩棉布 1米', price: 35, category: '布艺', image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=hand%20dyed%20cotton%20fabric%20textile&image_size=square', canSwap: false, username: '布艺小铺' },
-  { id: 3, title: '意大利植鞣革 A4大小', price: 128, category: '皮具', image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=italian%20vegetable%20tanned%20leather&image_size=square', canSwap: true, username: '皮革工坊' },
-  { id: 4, title: '天然蜂蜡蜡烛套装', price: 45, category: '其他', image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=natural%20beeswax%20candle%20set&image_size=square', canSwap: false, username: '蜂语者' },
-  { id: 5, title: '手工编织麻绳 5卷', price: 22, category: '编织', image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=handmade%20hemp%20rope%20twine%20rolls&image_size=square', canSwap: true, username: '编织达人' },
-  { id: 6, title: '水彩颜料24色套装', price: 89, category: '颜料', image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=watercolor%20paint%20set%2024%20colors&image_size=square', canSwap: false, username: '画意人生' },
-  { id: 7, title: '黄铜配件50个', price: 36, category: '金属', image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=brass%20hardware%20findings%20craft&image_size=square', canSwap: true, username: '银饰手作' },
-  { id: 8, title: '和纸胶带12卷装', price: 28, category: '纸艺', image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=washi%20tape%20rolls%20craft%20paper&image_size=square', canSwap: false, username: '纸艺家' },
-]
+const displayMaterials = computed(() => {
+  return store.materials.map((m: any) => ({
+    id: m.id,
+    title: m.title,
+    price: m.price,
+    category: m.category,
+    image: m.images?.[0]?.url || 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=craft%20material%20wooden%20fabric&image_size=square',
+    canSwap: !!m.is_swappable,
+    username: m.publisher?.username || m.username || '手作爱好者'
+  }))
+})
 
 onMounted(() => {
   store.fetchMaterials()
 })
 
 function handleSearch() {
-  store.setFilters({ keyword: keyword.value })
+  store.setFilters({
+    keyword: keyword.value,
+    minPrice: priceRange.value[0],
+    maxPrice: priceRange.value[1],
+    canSwap: canSwapOnly.value || undefined
+  })
+  store.setPage(1)
   store.fetchMaterials()
 }
 
 function handleCategoryChange(val: string) {
-  store.setFilters({ category: val })
+  store.setFilters({
+    category: val,
+    minPrice: priceRange.value[0],
+    maxPrice: priceRange.value[1],
+    canSwap: canSwapOnly.value || undefined
+  })
+  store.setPage(1)
   store.fetchMaterials()
 }
 
 function handleSortChange() {
-  store.setFilters({ sort: sort.value })
+  store.setFilters({
+    sort: sort.value,
+    minPrice: priceRange.value[0],
+    maxPrice: priceRange.value[1],
+    canSwap: canSwapOnly.value || undefined
+  })
+  store.setPage(1)
   store.fetchMaterials()
 }
 
@@ -53,6 +72,19 @@ function handlePageChange(page: number) {
   store.setPage(page)
   store.fetchMaterials()
 }
+
+watch(
+  () => [priceRange.value[0], priceRange.value[1], canSwapOnly.value],
+  () => {
+    store.setFilters({
+      minPrice: priceRange.value[0],
+      maxPrice: priceRange.value[1],
+      canSwap: canSwapOnly.value || undefined
+    })
+    store.setPage(1)
+    store.fetchMaterials()
+  }
+)
 </script>
 
 <template>
@@ -120,6 +152,7 @@ function handlePageChange(page: number) {
             />
           </el-select>
           <button
+            type="button"
             @click="sidebarOpen = !sidebarOpen"
             class="lg:hidden flex items-center gap-1 px-3 py-2 rounded-wood border border-wood-300 text-wood-600 hover:bg-wood-200 transition-colors"
           >
@@ -128,9 +161,14 @@ function handlePageChange(page: number) {
           </button>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
+        <div v-if="!store.loading && displayMaterials.length === 0" class="text-center py-16">
+          <p class="text-wood-500 text-lg">暂无符合条件的材料</p>
+          <p class="text-wood-400 text-sm mt-2">试试调整筛选条件</p>
+        </div>
+
+        <div v-else class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
           <div
-            v-for="(item, index) in mockMaterials"
+            v-for="(item, index) in displayMaterials"
             :key="item.id"
             :class="['animate-fade-in-up', `stagger-${(index % 8) + 1}`]"
           >
@@ -142,7 +180,7 @@ function handlePageChange(page: number) {
           <el-pagination
             :current-page="store.pagination.page"
             :page-size="store.pagination.pageSize"
-            :total="store.pagination.total || 24"
+            :total="store.pagination.total || 0"
             layout="prev, pager, next"
             @current-change="handlePageChange"
             background

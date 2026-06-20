@@ -24,7 +24,8 @@ export const useMessagesStore = defineStore('messages', () => {
     loading.value = true
     try {
       const res: any = await api.get('/messages')
-      messages.value = res.data?.list || res.data || []
+      const data = res.data?.list || res.data || []
+      messages.value = Array.isArray(data) ? data : []
     } finally {
       loading.value = false
     }

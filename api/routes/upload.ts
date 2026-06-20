@@ -47,7 +47,7 @@ router.post('/', authMiddleware, upload.array('files', 9), async (req: AuthReque
     }
 
     const urls = files.map(f => `/uploads/${f.filename}`)
-    res.json({ success: true, data: urls })
+    res.json({ success: true, data: { urls } })
   } catch (error) {
     res.status(500).json({ success: false, error: '文件上传失败' })
   }

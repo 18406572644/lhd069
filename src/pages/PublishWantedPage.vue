@@ -14,7 +14,7 @@ const form = ref({
   specs: '',
 })
 
-const categoryOptions = ['木质', '布艺', '皮具', '编织', '纸艺', '颜料', '金属', '其他']
+const categoryOptions = ['布料', '线材', '皮具', '花艺', '配件', '蜡烛', '颜料', '工具', '木质', '其他']
 
 async function handleSubmit() {
   if (!form.value.title || !form.value.category) {
@@ -31,7 +31,7 @@ async function handleSubmit() {
     <h1 class="font-display text-2xl font-bold text-wood-700 mb-6">发布求购</h1>
 
     <div class="fabric-bg rounded-wood-lg p-6 wood-shadow border border-wood-300">
-      <el-form label-position="top" class="space-y-2">
+      <el-form label-position="top" class="space-y-2" @submit.prevent="handleSubmit">
         <el-form-item label="求购标题">
           <el-input v-model="form.title" placeholder="简单描述你要找什么" />
         </el-form-item>
@@ -60,7 +60,7 @@ async function handleSubmit() {
         </el-form-item>
 
         <div class="pt-4">
-          <button @click="handleSubmit" class="wood-btn w-full text-base !py-3">发布求购</button>
+          <button type="submit" class="wood-btn w-full text-base !py-3">发布求购</button>
         </div>
       </el-form>
     </div>

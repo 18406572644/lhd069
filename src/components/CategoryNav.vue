@@ -9,13 +9,15 @@ const emit = defineEmits<{
 
 const categories = [
   { label: '全部', value: '' },
-  { label: '木质', value: '木质' },
-  { label: '布艺', value: '布艺' },
+  { label: '布料', value: '布料' },
+  { label: '线材', value: '线材' },
   { label: '皮具', value: '皮具' },
-  { label: '编织', value: '编织' },
-  { label: '纸艺', value: '纸艺' },
+  { label: '花艺', value: '花艺' },
+  { label: '配件', value: '配件' },
+  { label: '蜡烛', value: '蜡烛' },
   { label: '颜料', value: '颜料' },
-  { label: '金属', value: '金属' },
+  { label: '工具', value: '工具' },
+  { label: '木质', value: '木质' },
   { label: '其他', value: '其他' },
 ]
 

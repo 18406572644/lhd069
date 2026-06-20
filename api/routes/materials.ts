@@ -13,6 +13,9 @@ router.get('/', optionalAuth, async (req: AuthRequest, res: Response): Promise<v
     const category = req.query.category as string
     const keyword = req.query.keyword as string
     const sort = req.query.sort as string || 'latest'
+    const minPrice = parseFloat(req.query.minPrice as string)
+    const maxPrice = parseFloat(req.query.maxPrice as string)
+    const canSwap = req.query.canSwap as string
     const offset = (page - 1) * pageSize
 
     let whereClause = 'WHERE m.is_active = 1'
@@ -26,10 +29,24 @@ router.get('/', optionalAuth, async (req: AuthRequest, res: Response): Promise<v
       whereClause += ' AND (m.title LIKE ? OR m.description LIKE ?)'
       params.push(`%${keyword}%`, `%${keyword}%`)
     }
+    if (!isNaN(minPrice)) {
+      whereClause += ' AND m.price >= ?'
+      params.push(minPrice)
+    }
+    if (!isNaN(maxPrice)) {
+      whereClause += ' AND m.price <= ?'
+      params.push(maxPrice)
+    }
+    if (canSwap === 'true' || canSwap === '1') {
+      whereClause += ' AND m.is_swappable = 1'
+    }
 
     let orderBy = 'm.created_at DESC'
-    if (sort === 'price') orderBy = 'm.price ASC'
+    if (sort === 'price_asc' || sort === 'price') orderBy = 'm.price ASC'
+    if (sort === 'price_desc') orderBy = 'm.price DESC'
     if (sort === 'popular') orderBy = 'm.view_count DESC'
+    if (sort === 'swap') orderBy = 'm.is_swappable DESC, m.created_at DESC'
+    if (sort === 'latest') orderBy = 'm.created_at DESC'
 
     const countRow = db.prepare(`SELECT COUNT(*) as total FROM materials m ${whereClause}`).get(...params) as { total: number }
 
