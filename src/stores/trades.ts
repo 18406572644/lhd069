@@ -5,13 +5,17 @@ import api from '@/lib/api'
 interface Trade {
   id: number
   material_id: number
-  material_title: string
-  from_user_id: number
-  from_username: string
-  to_user_id: number
-  to_username: string
+  material_title?: string
+  responder_id: number
+  requester_id: number
+  from_user_id?: number
+  from_username?: string
+  to_user_id?: number
+  to_username?: string
+  offer_material_id?: number
+  offer_material_title?: string
   type: 'buy' | 'swap'
-  status: 'pending' | 'accepted' | 'shipping' | 'completed' | 'cancelled'
+  status: 'pending' | 'accepted' | 'rejected' | 'completed' | 'cancelled'
   price?: number
   message?: string
   created_at: string

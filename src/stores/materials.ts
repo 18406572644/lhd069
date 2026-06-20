@@ -9,13 +9,22 @@ interface Material {
   category: string
   price: number
   images: string[]
+  is_swappable?: number | boolean
   can_swap: boolean
-  specs: Record<string, string>[]
+  specs: { key: string; value: string }[]
   user_id: number
   username: string
   avatar?: string
   status: string
   created_at: string
+  is_active?: number | boolean
+  view_count?: number
+  user?: {
+    id: number
+    username: string
+    avatar?: string
+    credit_score?: number
+  }
 }
 
 interface Pagination {
@@ -52,7 +61,19 @@ export const useMaterialsStore = defineStore('materials', () => {
       }
       const res: any = await api.get('/materials', { params })
       const items = res.data?.items || res.data?.list || res.data || []
-      materials.value = items.map((m: any) => ({ ...m, is_swappable: !!m.is_swappable, is_active: !!m.is_active }))
+      materials.value = items.map((m: any) => ({
+        ...m,
+        is_swappable: !!m.is_swappable,
+        can_swap: !!m.is_swappable,
+        is_active: !!m.is_active,
+        images: Array.isArray(m.images) ? m.images.map((img: any) => img.url || img) : [],
+        user: {
+          id: m.user_id,
+          username: m.username,
+          avatar: m.avatar,
+          credit_score: m.credit_score
+        }
+      }))
       pagination.value.total = res.data?.total || 0
     } finally {
       loading.value = false
@@ -64,7 +85,23 @@ export const useMaterialsStore = defineStore('materials', () => {
     try {
       const res: any = await api.get(`/materials/${id}`)
       const m = res.data
-      currentMaterial.value = m ? { ...m, is_swappable: !!m.is_swappable, is_active: !!m.is_active } : null
+      if (m) {
+        currentMaterial.value = {
+          ...m,
+          is_swappable: !!m.is_swappable,
+          can_swap: !!m.is_swappable,
+          is_active: !!m.is_active,
+          images: Array.isArray(m.images) ? m.images.map((img: any) => img.url || img) : [],
+          user: {
+            id: m.user_id,
+            username: m.username,
+            avatar: m.avatar,
+            credit_score: m.credit_score
+          }
+        }
+      } else {
+        currentMaterial.value = null
+      }
     } finally {
       loading.value = false
     }
