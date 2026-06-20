@@ -1,0 +1,31 @@
+services:
+  backend:
+    build:
+      context: .
+      target: backend
+    container_name: lhd069-backend
+    restart: unless-stopped
+    ports:
+      - "6069:3001"
+    volumes:
+      - backend-data:/app/api/data
+      - backend-uploads:/app/api/uploads
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - JWT_SECRET=craft-market-secret-2024
+
+  frontend:
+    build:
+      context: .
+      target: frontend
+    container_name: lhd069-frontend
+    restart: unless-stopped
+    ports:
+      - "2069:80"
+    depends_on:
+      - backend
+
+volumes:
+  backend-data:
+  backend-uploads:
